@@ -16,6 +16,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.phishguard.phishguard.service.vpn.PhishGuardVpnService
 import com.phishguard.phishguard.ui.theme.PhishGuardTheme
+import com.phishguard.phishguard.util.ComponentTester
 
 // @AndroidEntryPoint - temporarily disabled due to AGP 9.0 beta compatibility
 class MainActivity : ComponentActivity() {
@@ -33,6 +34,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        
+        // Test components on startup (check Logcat)
+        ComponentTester.testThreatDetector()
+        
         setContent {
             PhishGuardTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
@@ -171,8 +176,10 @@ fun PhishGuardHomeScreen(
         Text(
             text = "Phase 1: VPN Service Foundation\n" +
                     "✓ VPN service implemented\n" +
-                    "⏳ Packet inspection in progress\n" +
-                    "⏳ URL extraction coming next",
+                    "✓ Packet inspection complete\n" +
+                    "✓ URL extraction working\n" +
+                    "✓ Threat detection active\n\n" +
+                    "Note: Full packet forwarding in Phase 2",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,

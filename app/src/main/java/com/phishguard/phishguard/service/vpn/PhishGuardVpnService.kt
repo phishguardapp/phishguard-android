@@ -11,9 +11,7 @@ import android.util.Log
 import kotlinx.coroutines.*
 import java.io.FileInputStream
 import java.io.FileOutputStream
-import java.net.InetSocketAddress
 import java.nio.ByteBuffer
-import java.nio.channels.DatagramChannel
 
 /**
  * PhishGuard VPN Service
@@ -31,6 +29,13 @@ class PhishGuardVpnService : VpnService() {
     private var vpnInterface: ParcelFileDescriptor? = null
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var isRunning = false
+    
+    private val packetParser = PacketParser()
+    private val threatDetector = ThreatDetector()
+    private val analyzedDomains = mutableSetOf<String>()
+    private val notificationManager by lazy { 
+        getSystemService(NotificationManager::class.java) 
+    }
     
     companion object {
         private const val TAG = "PhishGuardVpnService"
@@ -69,14 +74,21 @@ class PhishGuardVpnService : VpnService() {
             startForeground(NOTIFICATION_ID, createNotification())
             
             // Establish VPN tunnel
+            // Phase 1: Simplified configuration for testing
+            // We route only DNS traffic (8.8.8.8) to capture queries
+            // All other traffic bypasses the VPN for normal internet connectivity
             vpnInterface = Builder()
                 .setSession("PhishGuard")
                 .addAddress(VPN_ADDRESS, 32)
-                .addRoute(VPN_ROUTE, 0)
+                // Only route DNS server traffic through VPN
+                .addRoute("8.8.8.8", 32)
+                .addRoute("8.8.4.4", 32)
                 .addDnsServer("8.8.8.8")
                 .addDnsServer("8.8.4.4")
                 .setMtu(VPN_MTU)
                 .setBlocking(false)
+                // Allow apps to bypass for all other traffic
+                .allowBypass()
                 .establish()
             
             if (vpnInterface == null) {
@@ -87,11 +99,15 @@ class PhishGuardVpnService : VpnService() {
             
             isRunning = true
             Log.d(TAG, "VPN tunnel established successfully")
+            Log.i(TAG, "Phase 1: Monitoring mode - VPN active but not intercepting traffic")
+            Log.i(TAG, "Internet connectivity maintained, threat detection via component tests")
             
-            // Start packet processing
-            serviceScope.launch {
-                processPackets()
-            }
+            // Phase 1: Don't process packets to avoid blocking traffic
+            // Packet processing requires proper network forwarding (Phase 2)
+            // For now, threat detection is demonstrated via ComponentTester
+            // serviceScope.launch {
+            //     processPackets()
+            // }
             
         } catch (e: Exception) {
             Log.e(TAG, "Error starting VPN", e)
@@ -105,6 +121,7 @@ class PhishGuardVpnService : VpnService() {
         val buffer = ByteBuffer.allocate(VPN_MTU)
         
         Log.d(TAG, "Starting packet processing loop")
+        Log.i(TAG, "Monitoring DNS queries and analyzing domains for threats")
         
         try {
             while (isRunning && vpnInterface != null) {
@@ -119,11 +136,26 @@ class PhishGuardVpnService : VpnService() {
                     val packet = ByteArray(length)
                     buffer.get(packet)
                     
-                    // TODO: Parse packet and extract URL/domain
-                    // TODO: Analyze for phishing
-                    // TODO: Block or allow based on analysis
+                    // Parse packet and extract domain (for monitoring)
+                    try {
+                        val parsedPacket = packetParser.parse(packet)
+                        
+                        // Analyze domain if present
+                        parsedPacket?.domain?.let { domain ->
+                            if (!analyzedDomains.contains(domain)) {
+                                analyzedDomains.add(domain)
+                                Log.d(TAG, "Extracted domain: $domain")
+                                analyzeDomain(domain)
+                            }
+                        }
+                    } catch (e: Exception) {
+                        // Don't let parsing errors stop packet forwarding
+                        Log.w(TAG, "Error parsing packet: ${e.message}")
+                    }
                     
-                    // For now, just forward all packets
+                    // Forward packet back to VPN interface
+                    // Note: This is a simplified approach for Phase 1
+                    // A production VPN would forward to actual network sockets
                     buffer.rewind()
                     vpnOutput.channel.write(buffer)
                 }
@@ -138,6 +170,59 @@ class PhishGuardVpnService : VpnService() {
         } finally {
             Log.d(TAG, "Packet processing loop ended")
         }
+    }
+    
+    private fun analyzeDomain(domain: String) {
+        serviceScope.launch {
+            try {
+                val analysis = threatDetector.analyze(domain)
+                
+                when (analysis.verdict) {
+                    ThreatDetector.Verdict.DANGEROUS -> {
+                        Log.w(TAG, "DANGEROUS: $domain (${analysis.confidence * 100}%)")
+                        showThreatNotification(domain, analysis, true)
+                    }
+                    ThreatDetector.Verdict.SUSPICIOUS -> {
+                        Log.i(TAG, "SUSPICIOUS: $domain (${analysis.confidence * 100}%)")
+                        showThreatNotification(domain, analysis, false)
+                    }
+                    ThreatDetector.Verdict.SAFE -> {
+                        Log.d(TAG, "SAFE: $domain")
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error analyzing domain: $domain", e)
+            }
+        }
+    }
+    
+    private fun showThreatNotification(domain: String, analysis: ThreatDetector.ThreatAnalysis, isDangerous: Boolean) {
+        val notificationId = domain.hashCode()
+        
+        val title = if (isDangerous) {
+            "🛑 PHISHING ALERT"
+        } else {
+            "⚠️ Suspicious Site Detected"
+        }
+        
+        val text = if (isDangerous) {
+            "High risk site detected: $domain"
+        } else {
+            "Suspicious activity: $domain"
+        }
+        
+        val notification = Notification.Builder(this, CHANNEL_ID)
+            .setContentTitle(title)
+            .setContentText(text)
+            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setStyle(Notification.BigTextStyle()
+                .bigText("$text\n\nConfidence: ${(analysis.confidence * 100).toInt()}%\n\nReasons:\n${analysis.reasons.joinToString("\n• ", "• ")}")
+            )
+            .setAutoCancel(true)
+            .setPriority(if (isDangerous) Notification.PRIORITY_HIGH else Notification.PRIORITY_DEFAULT)
+            .build()
+        
+        notificationManager.notify(notificationId, notification)
     }
     
     private fun stopVpn() {
@@ -195,9 +280,12 @@ class PhishGuardVpnService : VpnService() {
         
         return Notification.Builder(this, CHANNEL_ID)
             .setContentTitle("PhishGuard Active")
-            .setContentText("Protecting you from phishing and scams")
+            .setContentText("Ready to protect - Internet working normally")
             .setSmallIcon(android.R.drawable.ic_secure)
             .setOngoing(true)
+            .setStyle(Notification.BigTextStyle()
+                .bigText("PhishGuard is active\n\nPhase 1: Threat detection demonstrated via component tests\nInternet connectivity: Normal\nNo traffic blocking")
+            )
             .addAction(
                 android.R.drawable.ic_delete,
                 "Stop",
