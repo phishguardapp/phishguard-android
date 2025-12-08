@@ -242,7 +242,8 @@ class LocalSocksProxy(
                     output.flush()
                     
                     // Relay data between client and destination
-                    relay(client, destination)
+                    // Pass domain for SNI extraction
+                    relay(client, destination, domain)
                     
                 } catch (e: Exception) {
                     Log.e(TAG, "Error connecting to $domain:$port", e)
@@ -268,10 +269,41 @@ class LocalSocksProxy(
         }
     }
     
-    private suspend fun relay(client: Socket, destination: Socket) = coroutineScope {
+    private suspend fun relay(client: Socket, destination: Socket, detectedDomain: String?) = coroutineScope {
         val job1 = launch {
             try {
-                client.getInputStream().copyTo(destination.getOutputStream())
+                val clientInput = client.getInputStream()
+                val destOutput = destination.getOutputStream()
+                
+                // Try to extract SNI from first packet (TLS Client Hello) if it's HTTPS
+                var sniExtracted = false
+                if (!sniExtracted && detectedDomain != null) {
+                    val firstPacket = ByteArray(4096)
+                    val bytesRead = clientInput.read(firstPacket, 0, firstPacket.size)
+                    
+                    if (bytesRead > 0) {
+                        // Try to extract SNI
+                        try {
+                            val sniDomain = SniExtractor.extractSni(firstPacket.copyOf(bytesRead))
+                            if (sniDomain != null && sniDomain != detectedDomain) {
+                                Log.i(TAG, "🔍 SNI extracted: $sniDomain (was: $detectedDomain)")
+                                // Cache this mapping and notify
+                                onDomainToIpMapping?.invoke(sniDomain, detectedDomain)
+                                onDomainDetected(sniDomain)
+                            }
+                        } catch (e: Exception) {
+                            Log.d(TAG, "SNI extraction failed: ${e.message}")
+                        }
+                        sniExtracted = true
+                        
+                        // Forward the first packet we just read
+                        destOutput.write(firstPacket, 0, bytesRead)
+                        destOutput.flush()
+                    }
+                }
+                
+                // Continue relaying remaining data
+                clientInput.copyTo(destOutput)
             } catch (e: Exception) {
                 // Connection closed
             }

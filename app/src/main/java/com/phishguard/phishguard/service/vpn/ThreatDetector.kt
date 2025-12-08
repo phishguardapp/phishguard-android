@@ -162,22 +162,22 @@ class ThreatDetector(private val context: Context) {
     // Includes international terms
     private val bankKeywords = setOf(
         // English
-        "bank", "banking", "paypal", "chase", "wellsfargo", "bofa", "citi",
+        "bank", "banking", "paypal", "payu", "chase", "wellsfargo", "bofa", "citi",
         "hsbc", "barclays", "santander", "dkb", "commerzbank", "deutsche-bank",
         // Indian banks
         "icici", "hdfc", "sbi", "axis", "kotak", "paytm", "phonepe",
         // Payment services
-        "stripe", "square", "venmo", "cashapp", "revolut", "n26",
+        "stripe", "square", "venmo", "cashapp", "revolut", "n26", "payment", "pay",
         // Spanish/Portuguese
-        "banco", "bancario", "credito", "creditos",
+        "banco", "bancario", "credito", "creditos", "pago", "pagos",
         // French
-        "banque", "bancaire", "crédit",
+        "banque", "bancaire", "crédit", "paiement",
         // German
-        "sparkasse", "volksbank", "raiffeisenbank",
+        "sparkasse", "volksbank", "raiffeisenbank", "zahlung",
         // Italian
-        "banca", "bancario",
+        "banca", "bancario", "pagamento",
         // Generic financial terms
-        "finance", "financial", "finanzas", "financeiro"
+        "finance", "financial", "finanzas", "financeiro", "secure", "account"
     )
     
     // Crypto/Web3 brands commonly impersonated
@@ -362,6 +362,23 @@ class ThreatDetector(private val context: Context) {
             reasons.add("Likely phishing attempt impersonating financial institution")
         }
         
+        // Check for suspicious patterns in domain names (common in phishing)
+        // Patterns like: admin.*, secure.*, login.*, account.*, verify.*, update.*
+        val suspiciousSubdomains = listOf("admin", "secure", "login", "account", "verify", "update", "confirm", "validate")
+        val hasAdminSubdomain = suspiciousSubdomains.any { subdomain ->
+            lowerDomain.startsWith("$subdomain.") || lowerDomain.contains(".$subdomain.")
+        }
+        
+        if (hasAdminSubdomain && hasBankKeyword) {
+            suspicionScore += 0.5f
+            val matchedSubdomain = suspiciousSubdomains.first { subdomain ->
+                lowerDomain.startsWith("$subdomain.") || lowerDomain.contains(".$subdomain.")
+            }
+            val matchedBank = bankKeywords.first { lowerDomain.contains(it) }
+            reasons.add("Suspicious subdomain pattern: '$matchedSubdomain' with financial keyword '$matchedBank'")
+            reasons.add("Common phishing tactic to appear legitimate")
+        }
+        
         // Check for suspicious keyword combinations (e.g., "secure-metamask")
         suspiciousCombinations.forEach { (prefix, brands) ->
             if (lowerDomain.contains(prefix)) {
@@ -457,6 +474,7 @@ class ThreatDetector(private val context: Context) {
         
         // For IPs, try to extract domain from SSL certificate first
         var actualDomain = domain
+        var certDomainExtracted: String? = null
         if (domainResolver.isIpAddress(domain)) {
             Log.d(TAG, "🔍 IP detected - attempting to extract domain from SSL certificate")
             try {
@@ -466,12 +484,32 @@ class ThreatDetector(private val context: Context) {
                     val certDomain = extractDomainFromCertificate(sslResult)
                     if (certDomain != null && certDomain != domain) {
                         Log.i(TAG, "✅ Extracted domain from SSL cert: $domain -> $certDomain")
+                        certDomainExtracted = certDomain
                         actualDomain = certDomain
+                        
+                        // Check if certificate hostname matches (it won't for IPs, but check anyway)
+                        if (!sslResult.hostnameMatches) {
+                            Log.w(TAG, "⚠️ SSL certificate hostname mismatch - potential phishing!")
+                            suspicionScore += 0.5f
+                            reasons.add("SSL certificate does not match the accessed site")
+                        }
+                        
                         // Now analyze the actual domain instead of the IP
                         // Recursively call analyze with the domain name
+                        Log.d(TAG, "🔄 Recursively analyzing extracted domain: $certDomain")
                         val domainAnalysis = analyze(certDomain)
-                        Log.i(TAG, "📊 Domain analysis result: $certDomain = ${domainAnalysis.verdict}")
-                        return domainAnalysis
+                        Log.i(TAG, "📊 Domain analysis result: $certDomain = ${domainAnalysis.verdict} (${(domainAnalysis.confidence * 100).toInt()}%)")
+                        
+                        // If the domain itself is suspicious/dangerous, return that verdict
+                        if (domainAnalysis.verdict != Verdict.SAFE) {
+                            return domainAnalysis
+                        }
+                        
+                        // If domain is SAFE but we have certificate mismatch, still flag it
+                        if (!sslResult.hostnameMatches && suspicionScore >= 0.5f) {
+                            Log.w(TAG, "⚠️ Domain is safe but certificate mismatch detected - flagging as suspicious")
+                            // Continue with current analysis that includes the mismatch penalty
+                        }
                     } else {
                         Log.d(TAG, "⚠️ Could not extract domain from certificate")
                     }
