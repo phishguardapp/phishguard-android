@@ -2,13 +2,12 @@ package com.phishguard.phishguard
 
 import android.app.Application
 import android.util.Log
+import dagger.hilt.android.HiltAndroidApp
 
 /**
- * PhishGuard Application class
- * 
- * Future: Will be annotated with @HiltAndroidApp when Hilt is re-enabled
- * after AGP 9.0 beta compatibility issues are resolved
+ * PhishGuard Application class with Hilt DI
  */
+@HiltAndroidApp
 class PhishGuardApplication : Application() {
     
     companion object {

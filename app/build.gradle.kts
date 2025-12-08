@@ -1,9 +1,8 @@
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.ksp)
-    // Hilt temporarily disabled due to AGP 9.0 beta compatibility issues
-    // alias(libs.plugins.hilt.android)
+    alias(libs.plugins.hilt.android)
 }
 
 android {
@@ -12,7 +11,7 @@ android {
 
     defaultConfig {
         applicationId = "com.phishguard.phishguard"
-        minSdk = 33
+        minSdk = 34  // Updated to match tun2socks requirement
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
@@ -30,11 +29,17 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = "17"
     }
     buildFeatures {
         compose = true
+    }
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.8"
     }
 }
 
@@ -51,9 +56,9 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     
-    // Hilt DI - temporarily disabled due to AGP 9.0 beta compatibility
-    // implementation(libs.hilt.android)
-    // ksp(libs.hilt.compiler)
+    // Hilt DI
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.compiler)
     
     // Room Database
     implementation(libs.room.runtime)
@@ -64,9 +69,8 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.jsoup)
     
-    // ML - temporarily disabled due to namespace conflict in AGP 9.0 beta
-    // Will re-enable with proper configuration
-    // implementation(libs.tensorflow.lite)
+    // ML
+    implementation(libs.tensorflow.lite)
     
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
@@ -74,8 +78,15 @@ dependencies {
     // Utilities
     implementation(libs.guava)
     
+    // Tun2Socks for packet forwarding
+    implementation(files("libs/tun2socks.aar"))
+    
     // Testing
     testImplementation(libs.junit)
+    testImplementation(libs.kotest.runner.junit5)
+    testImplementation(libs.kotest.assertions.core)
+    testImplementation(libs.kotest.property)
+    testImplementation(libs.mockk)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))

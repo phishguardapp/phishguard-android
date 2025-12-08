@@ -1,7 +1,9 @@
 package com.phishguard.phishguard.util
 
+import android.content.Context
 import android.util.Log
 import com.phishguard.phishguard.service.vpn.ThreatDetector
+import kotlinx.coroutines.runBlocking
 
 /**
  * Utility to test PhishGuard components without requiring VPN connectivity
@@ -15,10 +17,10 @@ object ComponentTester {
      * Test the threat detector with various domains
      * Call this from MainActivity to see results in Logcat
      */
-    fun testThreatDetector() {
+    fun testThreatDetector(context: Context) {
         Log.i(TAG, "=== Testing Threat Detector ===")
         
-        val detector = ThreatDetector()
+        val detector = ThreatDetector(context)
         
         // Test safe domains
         Log.i(TAG, "\n--- Testing Safe Domains ---")
@@ -46,7 +48,7 @@ object ComponentTester {
         Log.i(TAG, "\n=== Threat Detector Test Complete ===")
     }
     
-    private fun testDomain(detector: ThreatDetector, domain: String) {
+    private fun testDomain(detector: ThreatDetector, domain: String) = runBlocking {
         val analysis = detector.analyze(domain)
         
         val verdictEmoji = when (analysis.verdict) {
@@ -70,8 +72,8 @@ object ComponentTester {
     /**
      * Get test results as a formatted string for UI display
      */
-    fun getTestResults(): String {
-        val detector = ThreatDetector()
+    fun getTestResults(context: Context): String = runBlocking {
+        val detector = ThreatDetector(context)
         val results = StringBuilder()
         
         results.appendLine("PhishGuard Component Test Results\n")
@@ -94,6 +96,6 @@ object ComponentTester {
             results.appendLine()
         }
         
-        return results.toString()
+        results.toString()
     }
 }
