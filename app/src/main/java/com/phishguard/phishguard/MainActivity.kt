@@ -7,12 +7,17 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
@@ -23,6 +28,7 @@ import com.phishguard.phishguard.util.ComponentTester
 
 import dagger.hilt.android.AndroidEntryPoint
 
+@OptIn(ExperimentalMaterial3Api::class)
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     
@@ -40,28 +46,70 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         
-        // Test components on startup (check Logcat)
-        ComponentTester.testThreatDetector(this)
+        // Check if onboarding is needed
+        if (!com.phishguard.phishguard.ui.OnboardingActivity.isOnboardingComplete(this)) {
+            startActivity(Intent(this, com.phishguard.phishguard.ui.OnboardingActivity::class.java))
+            finish()
+            return
+        }
+        
+        // Test components on startup (check Logcat) - Disabled to prevent ANR
+        // ComponentTester.testThreatDetector(this)
         
         setContent {
+            var showVpnDialog by remember { mutableStateOf(false) }
+            
             PhishGuardTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                Scaffold(
+                    modifier = Modifier.fillMaxSize(),
+                    topBar = {
+                        TopAppBar(
+                            title = { Text("PhishGuard") },
+                            actions = {
+                                IconButton(
+                                    onClick = { openSettings() }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Settings,
+                                        contentDescription = "Settings"
+                                    )
+                                }
+                            }
+                        )
+                    }
+                ) { innerPadding ->
                     PhishGuardHomeScreen(
                         isVpnActive = isVpnActive,
-                        onToggleVpn = { toggleVpn() },
+                        onToggleVpn = { showVpnDialog = true },
                         modifier = Modifier.padding(innerPadding)
+                    )
+                }
+                
+                if (showVpnDialog) {
+                    VpnPermissionDialog(
+                        onAccept = {
+                            showVpnDialog = false
+                            requestVpnPermission()
+                        },
+                        onDecline = {
+                            showVpnDialog = false
+                        }
                     )
                 }
             }
         }
     }
     
+    private fun openSettings() {
+        val intent = Intent(this, com.phishguard.phishguard.ui.SettingsActivity::class.java)
+        startActivity(intent)
+    }
+    
     private fun toggleVpn() {
         if (isVpnActive) {
             stopVpnService()
-        } else {
-            requestVpnPermission()
         }
+        // For starting VPN, the dialog is shown from the Compose UI
     }
     
     private fun requestVpnPermission() {
@@ -107,10 +155,13 @@ fun PhishGuardHomeScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Spacer(modifier = Modifier.weight(0.5f))
-        Text(
-            text = "🛡️",
-            style = MaterialTheme.typography.displayLarge,
-            modifier = Modifier.padding(bottom = 16.dp)
+        Image(
+            painter = painterResource(id = R.drawable.ic_phishguard_logo),
+            contentDescription = "PhishGuard Logo",
+            modifier = Modifier
+                .size(120.dp)
+                .padding(bottom = 16.dp),
+            contentScale = ContentScale.Fit
         )
         
         Text(
@@ -283,4 +334,101 @@ private fun extractDomain(input: String): String {
     // Remove port
     domain = domain.split(":")[0]
     return domain.lowercase()
+}
+
+
+@Composable
+fun VpnPermissionDialog(
+    onAccept: () -> Unit,
+    onDecline: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDecline,
+        icon = {
+            Image(
+                painter = painterResource(id = R.drawable.ic_phishguard_logo),
+                contentDescription = "PhishGuard Logo",
+                modifier = Modifier.size(48.dp),
+                contentScale = ContentScale.Fit
+            )
+        },
+        title = {
+            Text(
+                "VPN Permission Required",
+                style = MaterialTheme.typography.titleLarge,
+                textAlign = TextAlign.Center
+            )
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    "PhishGuard needs VPN permission to protect you from phishing sites.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center
+                )
+                
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            "What PhishGuard does:",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                        )
+                        Text("✓ Monitors website addresses", style = MaterialTheme.typography.bodySmall)
+                        Text("✓ Detects phishing sites", style = MaterialTheme.typography.bodySmall)
+                        Text("✓ Alerts you before danger", style = MaterialTheme.typography.bodySmall)
+                        Text("✓ Blocks malicious connections", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            "What PhishGuard does NOT do:",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                        )
+                        Text("✗ Collect personal data", style = MaterialTheme.typography.bodySmall)
+                        Text("✗ Track browsing history", style = MaterialTheme.typography.bodySmall)
+                        Text("✗ Read message content", style = MaterialTheme.typography.bodySmall)
+                        Text("✗ Share data with others", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                
+                Text(
+                    "All analysis happens locally on your device.",
+                    style = MaterialTheme.typography.bodySmall,
+                    textAlign = TextAlign.Center,
+                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = onAccept) {
+                Text("Enable Protection")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDecline) {
+                Text("Not Now")
+            }
+        }
+    )
 }

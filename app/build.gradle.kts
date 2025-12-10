@@ -81,6 +81,11 @@ dependencies {
     // Tun2Socks for packet forwarding
     implementation(files("libs/tun2socks.aar"))
     
+    // CardView and Material for Settings UI
+    implementation("androidx.cardview:cardview:1.0.0")
+    implementation("androidx.appcompat:appcompat:1.6.1")
+    implementation("com.google.android.material:material:1.11.0")
+    
     // Testing
     testImplementation(libs.junit)
     testImplementation(libs.kotest.runner.junit5)

@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="PhishGuard Android Privacy Policy - Learn how we protect your privacy with on-device VPN analysis and no data collection.">
+    <title>PhishGuard Android - Privacy Policy</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 50px 40px;
+            text-align: center;
+        }
+        
+        .header-icon {
+            font-size: 72px;
+            margin-bottom: 20px;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        .header h1 {
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 15px;
+        }
+        
+        .header p {
+            font-size: 18px;
+            opacity: 0.95;
+            max-width: 700px;
+            margin: 0 auto;
+        }
+        
+        .content {
+            padding: 50px 40px;
+        }
+        
+        .highlight-box {
+            background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+            border-left: 5px solid #10b981;
+            border-radius: 8px;
+            padding: 25px;
+            margin-bottom: 40px;
+        }
+        
+        .highlight-box h3 {
+            color: #065f46;
+            font-size: 20px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .highlight-box h3::before {
+            content: "✓";
+            display: inline-block;
+            background: #10b981;
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 28px;
+            margin-right: 12px;
+            font-weight: bold;
+        }
+        
+        .highlight-box p {
+            color: #047857;
+            font-size: 16px;
+            line-height: 1.7;
+        }
+        
+        .section {
+            margin-bottom: 45px;
+        }
+        
+        .section h2 {
+            font-size: 28px;
+            color: #667eea;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 3px solid #f0f0f0;
+        }
+        
+        .section h3 {
+            font-size: 22px;
+            color: #555;
+            margin: 25px 0 15px 0;
+        }
+        
+        .section p {
+            font-size: 16px;
+            color: #555;
+            margin-bottom: 15px;
+            line-height: 1.8;
+        }
+        
+        .section ul {
+            margin: 20px 0;
+            padding-left: 20px;
+        }
+        
+        .section li {
+            padding: 8px 0;
+            color: #555;
+            line-height: 1.7;
+            margin-bottom: 8px;
+        }
+        
+        .section li::marker {
+            color: #667eea;
+            font-size: 1.2em;
+        }
+        
+        .no-collect {
+            background: #fef2f2;
+            border-left: 5px solid #ef4444;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        
+        .no-collect h3 {
+            color: #991b1b;
+            font-size: 20px;
+            margin-bottom: 15px;
+        }
+        
+        .no-collect ul {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .no-collect li {
+            padding: 8px 0 8px 35px;
+            color: #7f1d1d;
+            position: relative;
+        }
+        
+        .no-collect li::before {
+            content: "❌";
+            position: absolute;
+            left: 5px;
+            font-size: 18px;
+        }
+        
+        .yes-analyze {
+            background: #f0f9ff;
+            border-left: 5px solid #3b82f6;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        
+        .yes-analyze h3 {
+            color: #1e40af;
+            font-size: 20px;
+            margin-bottom: 15px;
+        }
+        
+        .yes-analyze ul {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .yes-analyze li {
+            padding: 8px 0 8px 35px;
+            color: #1e3a8a;
+            position: relative;
+        }
+        
+        .yes-analyze li::before {
+            content: "✅";
+            position: absolute;
+            left: 5px;
+            font-size: 18px;
+        }
+        
+        .info-card {
+            background: #f9fafb;
+            border-radius: 12px;
+            padding: 25px;
+            margin: 25px 0;
+            border: 2px solid #e5e7eb;
+        }
+        
+        .info-card h3 {
+            color: #374151;
+            font-size: 20px;
+            margin-bottom: 15px;
+        }
+        
+        .info-card ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .info-card li {
+            padding: 10px 0 10px 0;
+            color: #4b5563;
+            margin-bottom: 5px;
+        }
+        
+        .info-card li::before {
+            content: none;
+        }
+        
+        .info-card li strong {
+            display: inline-block;
+            min-width: 120px;
+            color: #1f2937;
+            margin-right: 10px;
+        }
+        
+        .compliance-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin: 25px 0;
+        }
+        
+        .badge {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .badge::before {
+            content: "✓";
+            background: white;
+            color: #667eea;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .footer {
+            background: #f9fafb;
+            padding: 40px;
+            text-align: center;
+            color: #666;
+            border-top: 3px solid #e5e7eb;
+        }
+        
+        .footer-links {
+            margin: 20px 0;
+        }
+        
+        .footer-links a {
+            color: #667eea;
+            text-decoration: none;
+            margin: 0 15px;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+        
+        .footer-links a:hover {
+            color: #764ba2;
+            text-decoration: underline;
+        }
+        
+        .last-updated {
+            display: inline-block;
+            background: #e5e7eb;
+            color: #6b7280;
+            padding: 6px 16px;
+            border-radius: 15px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-top: 15px;
+        }
+        
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            
+            .header {
+                padding: 30px 20px;
+            }
+            
+            .header h1 {
+                font-size: 28px;
+            }
+            
+            .header p {
+                font-size: 16px;
+            }
+            
+            .content {
+                padding: 30px 20px;
+            }
+            
+            .section h2 {
+                font-size: 24px;
+            }
+            
+            .footer {
+                padding: 30px 20px;
+            }
+            
+            .footer-links a {
+                display: block;
+                margin: 10px 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-icon">🔒</div>
+            <h1>Privacy Policy</h1>
+            <p>Your privacy is our top priority. Learn how PhishGuard Android protects you without collecting your data.</p>
+        </div>
+        
+        <div class="content">
+            <!-- Privacy First Highlight -->
+            <div class="highlight-box">
+                <h3>Privacy-First Design</h3>
+                <p>
+                    PhishGuard Android is built with privacy at its core. All network traffic analysis happens entirely on your device using a local VPN. 
+                    We do not collect, store, or transmit your browsing history, personal information, or any data that 
+                    could identify you. Period.
+                </p>
+            </div>
+            
+            <!-- Overview -->
+            <div class="section">
+                <h2>Overview</h2>
+                <p>
+                    PhishGuard is an Android VPN app designed to protect you from phishing websites and online scams across all your apps. 
+                    This privacy policy explains our data practices in detail. The short version: we don't collect your data.
+                </p>
+            </div>
+            
+            <!-- What We DO NOT Collect -->
+            <div class="section">
+                <h2>Data Collection</h2>
+                
+                <div class="no-collect">
+                    <h3>What We DO NOT Collect</h3>
+                    <p>PhishGuard does <strong>NOT</strong> collect, store, or transmit:</p>
+                    <ul>
+                        <li>Your browsing history</li>
+                        <li>Personal information (name, email, phone, address)</li>
+                        <li>Login credentials or passwords</li>
+                        <li>Form data you enter on websites</li>
+                        <li>Payment information</li>
+                        <li>Cookies or tracking data</li>
+                        <li>Device identifiers or fingerprints</li>
+                        <li>IP addresses</li>
+                        <li>Location data</li>
+                        <li>Any personally identifiable information (PII)</li>
+                    </ul>
+                </div>
+                
+                <div class="yes-analyze">
+                    <h3>What We Analyze (Locally Only)</h3>
+                    <p>PhishGuard analyzes network traffic <strong>on your device only</strong> to detect threats:</p>
+                    <ul>
+                        <li>Domain names from network requests (to check registration age)</li>
+                        <li>SSL certificates (to verify authenticity)</li>
+                        <li>URL patterns (to detect phishing indicators)</li>
+                        <li>HTTP vs HTTPS usage (to warn about insecure connections)</li>
+                        <li>DNS queries (to identify malicious domains)</li>
+                    </ul>
+                    <p style="margin-top: 15px; color: #1e40af; font-weight: 600;">
+                        ⚠️ Important: All analysis happens locally on your device using a VPN. No data is sent to our servers.
+                    </p>
+                </div>
+            </div>
+            
+            <!-- Third-Party Services -->
+            <div class="section">
+                <h2>Third-Party Services</h2>
+                <p>
+                    PhishGuard queries public services to verify website safety. These queries contain only domain names, 
+                    which are public information.
+                </p>
+                
+                <div class="info-card">
+                    <h3>WHOIS Lookups</h3>
+                    <ul>
+                        <li><strong>Purpose:</strong> Check domain registration age</li>
+                        <li><strong>Data Sent:</strong> Domain name only (e.g., "example.com")</li>
+                        <li><strong>Provider:</strong> Public WHOIS servers</li>
+                        <li><strong>Privacy:</strong> Domain names are public information</li>
+                    </ul>
+                </div>
+                
+                <div class="info-card">
+                    <h3>RDAP Queries</h3>
+                    <ul>
+                        <li><strong>Purpose:</strong> Fallback for domain age verification</li>
+                        <li><strong>Data Sent:</strong> Domain name only</li>
+                        <li><strong>Provider:</strong> Public RDAP servers</li>
+                        <li><strong>Privacy:</strong> No personal data transmitted</li>
+                    </ul>
+                </div>
+                
+                <div class="info-card">
+                    <h3>Tranco Rankings (Optional)</h3>
+                    <ul>
+                        <li><strong>Purpose:</strong> Check website popularity</li>
+                        <li><strong>Data Sent:</strong> Domain name only</li>
+                        <li><strong>Provider:</strong> Tranco (academic research project)</li>
+                        <li><strong>Privacy:</strong> No personal data transmitted</li>
+                    </ul>
+                </div>
+                
+                <div class="info-card">
+                    <h3>VPN Service</h3>
+                    <ul>
+                        <li><strong>Purpose:</strong> Monitor network traffic for phishing detection</li>
+                        <li><strong>Processing:</strong> Entirely on-device using Android VPN API</li>
+                        <li><strong>Data Sent:</strong> Nothing - all processing is local</li>
+                        <li><strong>Traffic Routing:</strong> Direct to websites (not through our servers)</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- Data Storage -->
+            <div class="section">
+                <h2>Data Storage</h2>
+                
+                <h3>Local Cache</h3>
+                <p>PhishGuard stores analysis results temporarily on your device:</p>
+                <ul>
+                    <li><strong>Duration:</strong> 1-24 hours (user configurable)</li>
+                    <li><strong>Purpose:</strong> Improve performance and reduce network requests</li>
+                    <li><strong>Location:</strong> Android app storage (local only)</li>
+                    <li><strong>Content:</strong> Domain verdicts and analysis results</li>
+                </ul>
+                
+                <h3>User Preferences</h3>
+                <p>PhishGuard stores your settings locally:</p>
+                <ul>
+                    <li>Cache duration settings</li>
+                    <li>VPN protection preferences</li>
+                    <li>Statistics (sites analyzed, threats blocked)</li>
+                    <li><strong>Location:</strong> Android app storage (local only)</li>
+                </ul>
+                
+                <p style="margin-top: 20px; padding: 15px; background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 4px; color: #78350f;">
+                    <strong>Note:</strong> You can clear all locally stored data by using the "Clear Cache" option in app settings.
+                </p>
+            </div>
+            
+            <!-- Permissions -->
+            <div class="section">
+                <h2>Permissions</h2>
+                <p>PhishGuard requires the following Android permissions:</p>
+                
+                <h3>VPN Permission</h3>
+                <ul>
+                    <li><strong>Purpose:</strong> Monitor network traffic for phishing detection</li>
+                    <li><strong>Scope:</strong> System-wide protection across all apps</li>
+                    <li><strong>Usage:</strong> Analyze domain names and detect threats in real-time</li>
+                </ul>
+                
+                <h3>Internet Permission</h3>
+                <ul>
+                    <li><strong>Purpose:</strong> Query public WHOIS/RDAP services and allow normal internet access</li>
+                    <li><strong>Scope:</strong> Only to verify domain information</li>
+                    <li><strong>Usage:</strong> Check domain age and SSL certificates</li>
+                </ul>
+                
+                <h3>Foreground Service Permission</h3>
+                <ul>
+                    <li><strong>Purpose:</strong> Run VPN protection in the background</li>
+                    <li><strong>Scope:</strong> Allows continuous protection</li>
+                    <li><strong>Usage:</strong> Keep threat detection active while using other apps</li>
+                </ul>
+            </div>
+            
+            <!-- Data Security -->
+            <div class="section">
+                <h2>Data Security</h2>
+                <ul>
+                    <li>🔒 All data processing occurs on your device</li>
+                    <li>🔒 No cloud storage or remote servers</li>
+                    <li>🔒 No user accounts or authentication required</li>
+                    <li>🔒 No data sharing with third parties</li>
+                    <li>🔒 No advertising or tracking</li>
+                </ul>
+            </div>
+            
+            <!-- Children's Privacy -->
+            <div class="section">
+                <h2>Children's Privacy</h2>
+                <p>
+                    PhishGuard does not knowingly collect data from anyone, including children under 13. 
+                    The extension does not collect personal information from any users.
+                </p>
+            </div>
+            
+            <!-- International Users -->
+            <div class="section">
+                <h2>International Users</h2>
+                <p>
+                    PhishGuard works worldwide and supports international domains. All privacy protections 
+                    apply equally regardless of your location.
+                </p>
+            </div>
+            
+            <!-- Changes to Policy -->
+            <div class="section">
+                <h2>Changes to Privacy Policy</h2>
+                <p>
+                    We may update this privacy policy occasionally. Changes will be posted on this page with 
+                    an updated "Last Updated" date. Continued use of PhishGuard after changes constitutes 
+                    acceptance of the updated policy.
+                </p>
+            </div>
+            
+            <!-- Your Rights -->
+            <div class="section">
+                <h2>Your Rights</h2>
+                <p>
+                    Since PhishGuard does not collect personal data, there is no data to request access to, 
+                    request deletion of, request correction of, or export/transfer.
+                </p>
+                <p>
+                    You can clear locally stored data using the "Clear Cache" option in PhishGuard settings.
+                </p>
+            </div>
+            
+            <!-- Compliance -->
+            <div class="section">
+                <h2>Compliance</h2>
+                <p>PhishGuard complies with:</p>
+                
+                <div class="compliance-badges">
+                    <div class="badge">Google Play Store Guidelines</div>
+                    <div class="badge">Android VPN Guidelines</div>
+                    <div class="badge">GDPR</div>
+                    <div class="badge">CCPA</div>
+                    <div class="badge">COPPA</div>
+                </div>
+            </div>
+            
+            <!-- Contact -->
+            <div class="section">
+                <h2>Contact</h2>
+                <p>If you have questions about this privacy policy:</p>
+                <ul>
+                    <li><strong>Email:</strong> phishhguard.app@gmail.com</li>
+                </ul>
+            </div>
+            
+            <!-- Summary -->
+            <div class="highlight-box">
+                <h3>Summary</h3>
+                <p>
+                    PhishGuard Android protects your privacy by processing everything locally on your device using a VPN. 
+                    We don't collect, store, or transmit your personal information or browsing history. 
+                    <strong>Your privacy is guaranteed.</strong>
+                </p>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p><strong>PhishGuard</strong> - Privacy-First Phishing Protection</p>
+            <div class="footer-links">
+                <a href="index.html">Home</a>
+                <a href="support.html">Support</a>
+                <a href="privacy.html">Privacy Policy</a>
+            </div>
+            <div class="last-updated">Last Updated: November 27, 2025</div>
+            <p style="margin-top: 20px; font-size: 14px; opacity: 0.7;">
+                © 2025 PhishGuard. All rights reserved.
+            </p>
+        </div>
+    </div>
+</body>
+</html>

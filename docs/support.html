@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="PhishGuard Android Support - Get help with installation, troubleshooting, and using PhishGuard VPN to stay safe online.">
+    <title>PhishGuard Android - Support & Help</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+            padding: 50px 40px;
+            text-align: center;
+        }
+        
+        .header-icon {
+            font-size: 72px;
+            margin-bottom: 20px;
+        }
+        
+        .header h1 {
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 15px;
+        }
+        
+        .header p {
+            font-size: 18px;
+            opacity: 0.95;
+            max-width: 700px;
+            margin: 0 auto;
+        }
+        
+        .quick-links {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            padding: 40px;
+            background: #f9fafb;
+        }
+        
+        .quick-link-card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+            cursor: pointer;
+            text-decoration: none;
+            color: inherit;
+        }
+        
+        .quick-link-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+        }
+        
+        .quick-link-card .icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+        
+        .quick-link-card h3 {
+            color: #667eea;
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+        
+        .quick-link-card p {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .content {
+            padding: 50px 40px;
+        }
+        
+        .section {
+            margin-bottom: 50px;
+        }
+        
+        .section h2 {
+            font-size: 28px;
+            color: #667eea;
+            margin-bottom: 25px;
+            padding-bottom: 12px;
+            border-bottom: 3px solid #f0f0f0;
+        }
+        
+        .faq-item {
+            background: #f9fafb;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .faq-item h3 {
+            color: #333;
+            font-size: 20px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .faq-item h3::before {
+            content: "Q:";
+            background: #667eea;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            margin-right: 12px;
+            font-weight: bold;
+        }
+        
+        .faq-item p {
+            color: #555;
+            font-size: 16px;
+            line-height: 1.7;
+            margin-left: 45px;
+        }
+        
+        .faq-item ul {
+            margin: 15px 0 0 45px;
+            padding-left: 20px;
+        }
+        
+        .faq-item li {
+            color: #555;
+            margin: 8px 0;
+        }
+        
+        .step-by-step {
+            background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+            border-radius: 12px;
+            padding: 30px;
+            margin: 25px 0;
+        }
+        
+        .step-by-step h3 {
+            color: #1e40af;
+            font-size: 22px;
+            margin-bottom: 20px;
+        }
+        
+        .step {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: flex-start;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .step-number {
+            background: #3b82f6;
+            color: white;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 18px;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }
+        
+        .step-content h4 {
+            color: #1e40af;
+            font-size: 18px;
+            margin-bottom: 8px;
+        }
+        
+        .step-content p {
+            color: #555;
+            font-size: 15px;
+            line-height: 1.6;
+        }
+        
+        .badge-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 25px 0;
+        }
+        
+        .badge {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .badge .emoji {
+            font-size: 36px;
+            margin-bottom: 10px;
+        }
+        
+        .badge h4 {
+            color: #333;
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+        
+        .badge p {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .contact-box {
+            background: linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%);
+            border-radius: 12px;
+            padding: 35px;
+            text-align: center;
+            margin: 30px 0;
+        }
+        
+        .contact-box h3 {
+            color: #6b21a8;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        
+        .contact-methods {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .contact-method {
+            background: white;
+            border-radius: 10px;
+            padding: 20px 30px;
+            text-decoration: none;
+            color: inherit;
+            transition: transform 0.3s;
+        }
+        
+        .contact-method:hover {
+            transform: scale(1.05);
+        }
+        
+        .contact-method .icon {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        
+        .contact-method p {
+            color: #6b21a8;
+            font-weight: 600;
+            font-size: 16px;
+        }
+        
+        .footer {
+            background: #f9fafb;
+            padding: 40px;
+            text-align: center;
+            color: #666;
+            border-top: 3px solid #e5e7eb;
+        }
+        
+        .footer-links {
+            margin: 20px 0;
+        }
+        
+        .footer-links a {
+            color: #667eea;
+            text-decoration: none;
+            margin: 0 15px;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+        
+        .footer-links a:hover {
+            color: #764ba2;
+            text-decoration: underline;
+        }
+        
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            
+            .header {
+                padding: 30px 20px;
+            }
+            
+            .header h1 {
+                font-size: 28px;
+            }
+            
+            .quick-links {
+                padding: 20px;
+                grid-template-columns: 1fr;
+            }
+            
+            .content {
+                padding: 30px 20px;
+            }
+            
+            .section h2 {
+                font-size: 24px;
+            }
+            
+            .faq-item p,
+            .faq-item ul {
+                margin-left: 0;
+            }
+            
+            .contact-methods {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .footer {
+                padding: 30px 20px;
+            }
+            
+            .footer-links a {
+                display: block;
+                margin: 10px 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-icon">🛟</div>
+            <h1>Support & Help Center</h1>
+            <p>Get help with PhishGuard Android, troubleshoot VPN issues, and learn how to stay safe online.</p>
+        </div>
+        
+        <!-- Quick Links -->
+        <div class="quick-links">
+            <a href="#installation" class="quick-link-card">
+                <div class="icon">📥</div>
+                <h3>Installation</h3>
+                <p>Get started with PhishGuard</p>
+            </a>
+            <a href="#faq" class="quick-link-card">
+                <div class="icon">❓</div>
+                <h3>FAQ</h3>
+                <p>Common questions answered</p>
+            </a>
+            <a href="#troubleshooting" class="quick-link-card">
+                <div class="icon">🔧</div>
+                <h3>Troubleshooting</h3>
+                <p>Fix common issues</p>
+            </a>
+            <a href="#contact" class="quick-link-card">
+                <div class="icon">💬</div>
+                <h3>Contact Us</h3>
+                <p>Get personalized help</p>
+            </a>
+        </div>
+        
+        <div class="content">
+            <!-- Installation -->
+            <div class="section" id="installation">
+                <h2>📥 Installation Guide</h2>
+                
+                <div class="step-by-step">
+                    <h3>Android Installation</h3>
+                    <div class="step">
+                        <div class="step-number">1</div>
+                        <div class="step-content">
+                            <h4>Download from Google Play</h4>
+                            <p>Search for "PhishGuard" in Google Play Store and tap "Install" to download.</p>
+                        </div>
+                    </div>
+                    <div class="step">
+                        <div class="step-number">2</div>
+                        <div class="step-content">
+                            <h4>Open the App</h4>
+                            <p>Open PhishGuard and complete the onboarding process.</p>
+                        </div>
+                    </div>
+                    <div class="step">
+                        <div class="step-number">3</div>
+                        <div class="step-content">
+                            <h4>Grant VPN Permission</h4>
+                            <p>Tap "Start Protection" and allow VPN permission when prompted by Android.</p>
+                        </div>
+                    </div>
+                    <div class="step">
+                        <div class="step-number">4</div>
+                        <div class="step-content">
+                            <h4>Start Browsing</h4>
+                            <p>Use any app or browser. PhishGuard protects you system-wide automatically!</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Understanding Notifications -->
+            <div class="section">
+                <h2>🎯 Understanding Threat Notifications</h2>
+                
+                <div class="badge-grid">
+                    <div class="badge">
+                        <div class="emoji">✅</div>
+                        <h4>Safe Sites</h4>
+                        <p>No notification - Browse with confidence</p>
+                    </div>
+                    <div class="badge">
+                        <div class="emoji">⚠️</div>
+                        <h4>Suspicious</h4>
+                        <p>Yellow notification - Proceed carefully</p>
+                    </div>
+                    <div class="badge">
+                        <div class="emoji">🚨</div>
+                        <h4>Dangerous</h4>
+                        <p>Red notification - Likely phishing</p>
+                    </div>
+                    <div class="badge">
+                        <div class="emoji">🛡️</div>
+                        <h4>Protected</h4>
+                        <p>VPN active - System-wide protection</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- FAQ -->
+            <div class="section" id="faq">
+                <h2>❓ Frequently Asked Questions</h2>
+                
+                <div class="faq-item">
+                    <h3>Is PhishGuard really free?</h3>
+                    <p>Yes! PhishGuard is completely free with no subscriptions, in-app purchases, or hidden costs. We believe everyone deserves protection from phishing attacks.</p>
+                </div>
+                
+                <div class="faq-item">
+                    <h3>Does PhishGuard track my browsing?</h3>
+                    <p>Absolutely not. All analysis happens on your device using a local VPN. We don't collect, store, or transmit your browsing history or personal information. Your privacy is guaranteed.</p>
+                </div>
+                
+                <div class="faq-item">
+                    <h3>How accurate is the detection?</h3>
+                    <p>PhishGuard uses multiple detection layers for high accuracy:</p>
+                    <ul>
+                        <li>Domain age verification (catches new scam sites)</li>
+                        <li>SSL certificate validation (trusted authorities)</li>
+                        <li>Real-time network traffic analysis</li>
+                        <li>HTTP vs HTTPS security checks</li>
+                        <li>Banking and crypto brand protection</li>
+                        <li>Free hosting platform detection</li>
+                        <li>Suspicious pattern recognition</li>
+                    </ul>
+                    <p>While no system is 100% perfect, PhishGuard provides excellent system-wide protection.</p>
+                </div>
+                
+                <div class="faq-item">
+                    <h3>Will it slow down my internet?</h3>
+                    <p>No! PhishGuard uses smart caching and efficient VPN processing. Analysis happens in the background without affecting your internet speed. Cached results are instant.</p>
+                </div>
+                
+                <div class="faq-item">
+                    <h3>Does it work offline?</h3>
+                    <p>Partially. PhishGuard can use cached results offline. New site analysis requires internet for domain age verification, but the app will still perform local pattern checks.</p>
+                </div>
+                
+                <div class="faq-item">
+                    <h3>What if a legitimate site is flagged?</h3>
+                    <p>False positives can occur, especially with very new legitimate sites. You can report false positives through the app's support feature so we can improve our detection algorithms.</p>
+                </div>
+                
+                <div class="faq-item">
+                    <h3>Which languages are supported?</h3>
+                    <p>PhishGuard is available in  languages: English, Spanish, French, German, Chinese (Simplified), Japanese, and Hindi. The interface automatically matches your device language.</p>
+                </div>
+                
+                <div class="faq-item">
+                    <h3>Can I use it on multiple devices?</h3>
+                    <p>Yes! Install PhishGuard on all your Android devices. Each installation is independent and free.</p>
+                </div>
+            </div>
+            
+            <!-- Troubleshooting -->
+            <div class="section" id="troubleshooting">
+                <h2>🔧 Troubleshooting</h2>
+                
+                <div class="faq-item">
+                    <h3>VPN not starting or notifications not appearing</h3>
+                    <p><strong>Solutions:</strong></p>
+                    <ul>
+                        <li>Check that VPN permission was granted in Android settings</li>
+                        <li>Restart the PhishGuard app</li>
+                        <li>Toggle VPN protection off and on again</li>
+                        <li>Update to the latest version of Android and PhishGuard</li>
+                        <li>Check if another VPN app is running (only one VPN can be active)</li>
+                    </ul>
+                </div>
+                
+                <div class="faq-item">
+                    <h3>No notifications for suspicious sites</h3>
+                    <p><strong>Solutions:</strong></p>
+                    <ul>
+                        <li>Check your internet connection</li>
+                        <li>Ensure VPN protection is enabled</li>
+                        <li>Check notification permissions for PhishGuard</li>
+                        <li>Wait a few seconds - analysis may still be running</li>
+                        <li>Check if WHOIS services are accessible from your network</li>
+                    </ul>
+                </div>
+                
+                <div class="faq-item">
+                    <h3>Legitimate site flagged as suspicious</h3>
+                    <p><strong>Common reasons:</strong></p>
+                    <ul>
+                        <li>Very new domain (legitimate startups may be flagged)</li>
+                        <li>Uncommon SSL certificate provider</li>
+                        <li>Site hosted on free hosting platform</li>
+                        <li>Site using HTTP instead of HTTPS</li>
+                    </ul>
+                    <p><strong>Solution:</strong> Please report the false positive through the app's support feature so we can improve our detection.</p>
+                </div>
+                
+                <div class="faq-item">
+                    <h3>Internet connection slow</h3>
+                    <p><strong>Solutions:</strong></p>
+                    <ul>
+                        <li>PhishGuard uses caching - slowness should only occur on first visit to new sites</li>
+                        <li>Check your internet connection speed</li>
+                        <li>Try disabling and re-enabling VPN protection</li>
+                        <li>Clear app cache in PhishGuard settings</li>
+                        <li>Restart the app</li>
+                    </ul>
+                </div>
+                
+                <div class="faq-item">
+                    <h3>App not working after update</h3>
+                    <p><strong>Solutions:</strong></p>
+                    <ul>
+                        <li>Restart the PhishGuard app</li>
+                        <li>Disable and re-enable VPN protection</li>
+                        <li>Restart your Android device</li>
+                        <li>Clear app cache in settings</li>
+                        <li>Reinstall PhishGuard if issues persist</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- Best Practices -->
+            <div class="section">
+                <h2>✅ Best Practices for Online Safety</h2>
+                
+                <div class="faq-item">
+                    <h3>General Security</h3>
+                    <ul>
+                        <li>Trust PhishGuard's verdicts - take warnings seriously</li>
+                        <li>Always verify URLs before entering sensitive information</li>
+                        <li>Use strong, unique passwords for each account</li>
+                        <li>Enable two-factor authentication when available</li>
+                        <li>Keep your devices and software updated</li>
+                    </ul>
+                </div>
+                
+                <div class="faq-item">
+                    <h3>When Banking Online</h3>
+                    <ul>
+                        <li>Bookmark your bank's website and always use the bookmark</li>
+                        <li>Never click banking links in emails</li>
+                        <li>Verify the URL is correct (check for misspellings)</li>
+                        <li>Your bank should always show a green badge</li>
+                        <li>Enable all available security features</li>
+                    </ul>
+                </div>
+                
+                <div class="faq-item">
+                    <h3>When Shopping Online</h3>
+                    <ul>
+                        <li>Research new stores before purchasing</li>
+                        <li>Check domain age - very new stores are risky</li>
+                        <li>Use credit cards (better fraud protection than debit)</li>
+                        <li>Look for contact information and return policies</li>
+                        <li>If prices seem too good to be true, they probably are</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- Contact -->
+            <div class="section" id="contact">
+                <h2>💬 Contact & Support</h2>
+                
+                <div class="contact-box">
+                    <h3>Need More Help?</h3>
+                    <p style="color: #6b21a8; margin-bottom: 25px;">We're here to help! Choose your preferred contact method:</p>
+                    
+                    <div class="contact-methods">
+                        <a href="https://github.com/phishguardapp/phishguardapp/issues" class="contact-method" target="_blank">
+                            <div class="icon">🐛</div>
+                            <p>Report Bug</p>
+                        </a>
+                        <a href="mailto:phishhguard.app@gmail.com" class="contact-method">
+                            <div class="icon">📧</div>
+                            <p>Email Support</p>
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="faq-item">
+                    <h3>When contacting support, please include:</h3>
+                    <ul>
+                        <li>PhishGuard version number</li>
+                        <li>Device and OS version</li>
+                        <li>Safari version</li>
+                        <li>Website URL (if applicable)</li>
+                        <li>Screenshot of the issue</li>
+                        <li>Steps to reproduce the problem</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- Resources -->
+            
+        </div>
+        
+        <div class="footer">
+            <p><strong>PhishGuard</strong> - Protecting You from Phishing & Scams</p>
+            <div class="footer-links">
+                <a href="index.html">Home</a>
+                <a href="support.html">Support</a>
+                <a href="privacy.html">Privacy Policy</a>
+                <a href="https://github.com/[your-username]/phishguard" target="_blank">GitHub</a>
+            </div>
+            <p style="margin-top: 20px; font-size: 14px; opacity: 0.7;">
+                © 2024 PhishGuard. All rights reserved.
+            </p>
+        </div>
+    </div>
+</body>
+</html>

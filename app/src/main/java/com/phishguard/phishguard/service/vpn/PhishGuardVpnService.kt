@@ -4,10 +4,14 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.net.VpnService
 import android.os.ParcelFileDescriptor
 import android.util.Log
+import com.phishguard.phishguard.utils.PreferencesManager
 import kotlinx.coroutines.*
 import kotlinx.coroutines.delay
 import java.io.FileInputStream
@@ -33,10 +37,32 @@ class PhishGuardVpnService : VpnService() {
     private var isRunning = false
     
     private val threatDetector by lazy { ThreatDetector(this) }
+    private val prefsManager by lazy { PreferencesManager(this) }
     private val analyzedDomains = mutableSetOf<String>()
     private val notifiedDomains = mutableMapOf<String, Long>()  // domain -> last notification time
+    private var lastNotificationTime = 0L  // Track last notification to suppress resource spam
     private val notificationManager by lazy { 
         getSystemService(NotificationManager::class.java) 
+    }
+    
+    // Track original user-entered domains and their redirects
+    private val domainRedirects = mutableMapOf<String, String>()  // redirect -> original
+    private val recentDomains = mutableListOf<String>()  // Track order of domains accessed
+    private val MAX_RECENT_DOMAINS = 10
+    
+    private val settingsBroadcastReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                Actions.ACTION_CLEAR_CACHE -> {
+                    Log.i(TAG, "Clearing threat analysis cache")
+                    threatDetector.clearCache()
+                }
+                Actions.ACTION_UPDATE_CACHE_DURATION -> {
+                    Log.i(TAG, "Cache duration updated to ${prefsManager.cacheDurationHours} hours")
+                    // Cache will automatically use new duration on next lookup
+                }
+            }
+        }
     }
     
     private var ipMonitor: IpMonitor? = null
@@ -52,12 +78,20 @@ class PhishGuardVpnService : VpnService() {
         private const val NOTIFICATION_ID = 1
         private const val CHANNEL_ID = "phishguard_vpn"
         private const val NOTIFICATION_COOLDOWN_MS = 5 * 60 * 1000L  // 5 minutes
+        private const val RESOURCE_SUPPRESSION_MS = 30 * 1000L  // 30 seconds - suppress resource notifications
     }
     
     override fun onCreate() {
         super.onCreate()
         Log.d(TAG, "VPN Service created")
         createNotificationChannel()
+        
+        // Register broadcast receiver for settings changes
+        val filter = IntentFilter().apply {
+            addAction(Actions.ACTION_CLEAR_CACHE)
+            addAction(Actions.ACTION_UPDATE_CACHE_DURATION)
+        }
+        registerReceiver(settingsBroadcastReceiver, filter, RECEIVER_NOT_EXPORTED)
     }
     
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -108,14 +142,22 @@ class PhishGuardVpnService : VpnService() {
             
             // Start local SOCKS proxy for domain extraction
             socksProxy = LocalSocksProxy(
-                onDomainDetected = { detectedDomain ->
-                    Log.i(TAG, "🔍 Domain detected via SOCKS: $detectedDomain")
+                onDomainDetected = { detectedDomain, port ->
+                    val protocol = when (port) {
+                        80 -> "HTTP"
+                        443 -> "HTTPS"
+                        else -> "port $port"
+                    }
+                    Log.i(TAG, "🔍 Domain detected via SOCKS: $detectedDomain ($protocol)")
                     
                     // Skip infrastructure domains that are clearly safe
                     if (isInfrastructureDomain(detectedDomain)) {
                         Log.d(TAG, "⏭️ SKIP - infrastructure domain: $detectedDomain")
                         return@LocalSocksProxy
                     }
+                    
+                    // Track domain access order for redirect detection
+                    trackDomainAccess(detectedDomain)
                     
                     // Always analyze (uses cache if already analyzed)
                     // But control notification frequency
@@ -126,7 +168,13 @@ class PhishGuardVpnService : VpnService() {
                     } else {
                         Log.d(TAG, "🔄 Re-analyzing cached domain: $detectedDomain")
                     }
-                    analyzeDomain(detectedDomain, isNewDomain)
+                    
+                    // Determine which domain to show in notification
+                    val displayDomain = getDisplayDomain(detectedDomain)
+                    
+                    // Check if using unencrypted HTTP
+                    val isHttp = (port == 80)
+                    analyzeDomain(detectedDomain, displayDomain, isNewDomain, isHttp)
                 },
                 onDomainToIpMapping = { domain, ipAddress ->
                     // Cache the DNS resolution for later IP-to-domain lookups
@@ -147,17 +195,17 @@ class PhishGuardVpnService : VpnService() {
             Log.i(TAG, "Tun2Socks started with SOCKS proxy - domain extraction active!")
             
             // Test notification to verify system works
-            serviceScope.launch {
-                delay(2000) // Wait 2 seconds
-                val testAnalysis = ThreatDetector.ThreatAnalysis(
-                    domain = "test-notification.com",
-                    verdict = ThreatDetector.Verdict.SUSPICIOUS,
-                    confidence = 0.75f,
-                    reasons = listOf("This is a test notification to verify the system works")
-                )
-                showThreatNotification("test-notification.com", testAnalysis, false)
-                Log.i(TAG, "Test notification sent")
-            }
+//            serviceScope.launch {
+//                delay(2000) // Wait 2 seconds
+//                val testAnalysis = ThreatDetector.ThreatAnalysis(
+//                    domain = "test-notification.com",
+//                    verdict = ThreatDetector.Verdict.SUSPICIOUS,
+//                    confidence = 0.75f,
+//                    reasons = listOf("This is a test notification to verify the system works")
+//                )
+//                showThreatNotification("test-notification.com", testAnalysis, false)
+//                Log.i(TAG, "Test notification sent")
+//            }
             
         } catch (e: Exception) {
             Log.e(TAG, "Error starting VPN", e)
@@ -167,46 +215,117 @@ class PhishGuardVpnService : VpnService() {
     
 
     
-    private fun analyzeDomain(domain: String, isNewDomain: Boolean) {
+    /**
+     * Track domain access for redirect detection
+     */
+    private fun trackDomainAccess(domain: String) {
+        recentDomains.add(0, domain)
+        if (recentDomains.size > MAX_RECENT_DOMAINS) {
+            recentDomains.removeAt(recentDomains.size - 1)
+        }
+    }
+    
+    /**
+     * Determine which domain to display in notification
+     * If this looks like a redirect (infrastructure/hosting domain), show the original user domain
+     */
+    private fun getDisplayDomain(detectedDomain: String): String {
+        // If this domain looks like infrastructure/hosting reverse DNS
+        if (looksLikeInfrastructure(detectedDomain)) {
+            // Find the most recent non-infrastructure domain
+            val originalDomain = recentDomains.firstOrNull { !looksLikeInfrastructure(it) }
+            if (originalDomain != null && originalDomain != detectedDomain) {
+                Log.d(TAG, "🔀 Redirect detected: $originalDomain -> $detectedDomain")
+                domainRedirects[detectedDomain] = originalDomain
+                return originalDomain
+            }
+        }
+        
+        // Check if we've seen this as a redirect before
+        domainRedirects[detectedDomain]?.let { original ->
+            Log.d(TAG, "🔀 Known redirect: using original domain $original")
+            return original
+        }
+        
+        return detectedDomain
+    }
+    
+    /**
+     * Check if domain looks like infrastructure/hosting (more lenient than isInfrastructureDomain)
+     */
+    private fun looksLikeInfrastructure(domain: String): Boolean {
+        val lower = domain.lowercase()
+        
+        // Patterns that suggest infrastructure
+        return lower.matches(Regex("^[a-z]\\d+[a-z]?-\\d+\\..*")) ||  // o5044s-259.kagoya.net
+               lower.matches(Regex("^ns\\d+\\..*")) ||  // ns123.provider.com
+               lower.matches(Regex("^server\\d+\\..*")) ||  // server123.provider.com
+               lower.matches(Regex("^srv\\d+\\..*")) ||  // srv123.provider.com
+               lower.matches(Regex("^vps\\d+\\..*")) ||  // vps123.provider.com
+               lower.matches(Regex("^host\\d+\\..*")) ||  // host123.provider.com
+               lower.matches(Regex("^dproxy\\..*")) ||  // dproxy.provider.com (dynamic proxy)
+               lower.matches(Regex("^proxy\\d*\\..*")) ||  // proxy.provider.com or proxy1.provider.com
+               lower.matches(Regex(".*\\.ip-[\\d-]+\\..*")) ||  // anything.ip-1-2-3.provider
+               lower.contains("-cdn.") ||
+               lower.contains(".cdn.") ||
+               isInfrastructureDomain(domain)  // Use existing comprehensive check
+    }
+    
+    private fun analyzeDomain(analyzedDomain: String, displayDomain: String, isNewDomain: Boolean, isHttp: Boolean) {
         serviceScope.launch {
             try {
-                Log.i(TAG, "🔬 Starting analysis for: $domain")
-                val analysis = threatDetector.analyze(domain)
-                Log.i(TAG, "📊 Analysis result: $domain = ${analysis.verdict} (${(analysis.confidence * 100).toInt()}%)")
+                Log.i(TAG, "🔬 Starting analysis for: $analyzedDomain (HTTP: $isHttp)")
+                if (analyzedDomain != displayDomain) {
+                    Log.i(TAG, "   📱 Will display as: $displayDomain")
+                }
+                
+                val analysis = threatDetector.analyze(analyzedDomain, isHttp)
+                Log.i(TAG, "📊 Analysis result: $analyzedDomain = ${analysis.verdict} (${(analysis.confidence * 100).toInt()}%)")
+                
+                // Increment sites analyzed counter
+                prefsManager.incrementSitesAnalyzed()
                 
                 when (analysis.verdict) {
                     ThreatDetector.Verdict.DANGEROUS -> {
-                        Log.w(TAG, "🚨 DANGEROUS: $domain (${(analysis.confidence * 100).toInt()}%)")
+                        Log.w(TAG, "🚨 DANGEROUS: $analyzedDomain (${(analysis.confidence * 100).toInt()}%)")
                         Log.w(TAG, "   Reasons: ${analysis.reasons.joinToString(", ")}")
                         
-                        // Check notification cooldown
-                        if (shouldShowNotification(domain, isNewDomain)) {
-                            showThreatNotification(domain, analysis, true)
-                            notifiedDomains[domain] = System.currentTimeMillis()
-                            Log.w(TAG, "   ✅ Notification sent for DANGEROUS domain")
+                        // Increment threats blocked counter
+                        prefsManager.incrementThreatsBlocked()
+                        
+                        // Check notification cooldown using display domain
+                        if (shouldShowNotification(displayDomain, isNewDomain)) {
+                            showThreatNotification(displayDomain, analysis, true)
+                            notifiedDomains[displayDomain] = System.currentTimeMillis()
+                            lastNotificationTime = System.currentTimeMillis()
+                            Log.w(TAG, "   ✅ Notification sent for DANGEROUS domain: $displayDomain")
                         } else {
                             Log.d(TAG, "   ⏭️ Notification skipped (cooldown period)")
                         }
                     }
                     ThreatDetector.Verdict.SUSPICIOUS -> {
-                        Log.i(TAG, "⚠️ SUSPICIOUS: $domain (${(analysis.confidence * 100).toInt()}%)")
+                        Log.i(TAG, "⚠️ SUSPICIOUS: $analyzedDomain (${(analysis.confidence * 100).toInt()}%)")
                         Log.i(TAG, "   Reasons: ${analysis.reasons.joinToString(", ")}")
                         
-                        // Check notification cooldown
-                        if (shouldShowNotification(domain, isNewDomain)) {
-                            showThreatNotification(domain, analysis, false)
-                            notifiedDomains[domain] = System.currentTimeMillis()
-                            Log.i(TAG, "   ✅ Notification sent for SUSPICIOUS domain")
+                        // Increment threats blocked counter
+                        prefsManager.incrementThreatsBlocked()
+                        
+                        // Check notification cooldown using display domain
+                        if (shouldShowNotification(displayDomain, isNewDomain)) {
+                            showThreatNotification(displayDomain, analysis, false)
+                            notifiedDomains[displayDomain] = System.currentTimeMillis()
+                            lastNotificationTime = System.currentTimeMillis()
+                            Log.i(TAG, "   ✅ Notification sent for SUSPICIOUS domain: $displayDomain")
                         } else {
                             Log.d(TAG, "   ⏭️ Notification skipped (cooldown period)")
                         }
                     }
                     ThreatDetector.Verdict.SAFE -> {
-                        Log.d(TAG, "✅ SAFE: $domain")
+                        Log.d(TAG, "✅ SAFE: $analyzedDomain")
                     }
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "❌ Error analyzing domain: $domain", e)
+                Log.e(TAG, "❌ Error analyzing domain: $analyzedDomain", e)
             }
         }
     }
@@ -216,20 +335,32 @@ class PhishGuardVpnService : VpnService() {
      * Returns true if:
      * 1. First time seeing this domain (isNewDomain = true), OR
      * 2. Cooldown period has passed since last notification
+     * 3. NOT a bare IP (we never show notifications for IPs, only domain names)
      */
     private fun shouldShowNotification(domain: String, isNewDomain: Boolean): Boolean {
+        // Check if this is a bare IP (likely a resource, not main page)
+        val isIpAddress = domain.matches(Regex("\\d+\\.\\d+\\.\\d+\\.\\d+"))
+        
+        // NEVER show notifications for bare IPs
+        // Users should only see domain names in notifications for clarity
+        // IPs are analyzed for security but notifications are suppressed
+        if (isIpAddress) {
+            Log.d(TAG, "   ⏭️ Suppressing IP notification (showing domain names only)")
+            return false
+        }
+        
         if (isNewDomain) {
             Log.d(TAG, "   ✅ First time - showing notification")
             return true
         }
         
-        val lastNotificationTime = notifiedDomains[domain]
-        if (lastNotificationTime == null) {
+        val lastDomainNotificationTime = notifiedDomains[domain]
+        if (lastDomainNotificationTime == null) {
             Log.d(TAG, "   ✅ No previous notification - showing")
             return true
         }
         
-        val timeSinceLastNotification = System.currentTimeMillis() - lastNotificationTime
+        val timeSinceLastNotification = System.currentTimeMillis() - lastDomainNotificationTime
         val cooldownRemaining = NOTIFICATION_COOLDOWN_MS - timeSinceLastNotification
         
         if (timeSinceLastNotification >= NOTIFICATION_COOLDOWN_MS) {
@@ -321,8 +452,13 @@ class PhishGuardVpnService : VpnService() {
         if (lowerDomain.endsWith(".cloudfront.net")) return true
         if (lowerDomain.endsWith(".akamaiedge.net")) return true
         if (lowerDomain.endsWith(".fastly.net")) return true
+        if (lowerDomain.endsWith(".fastlylb.net")) return true
         if (lowerDomain.endsWith(".edgekey.net")) return true
         if (lowerDomain.endsWith(".edgesuite.net")) return true
+        
+        // More CDN providers
+        if (lowerDomain.endsWith(".cloudflaressl.com")) return true
+        if (lowerDomain.endsWith(".cloudflare-dns.com")) return true
         
         // Facebook/Meta infrastructure
         if (lowerDomain.endsWith(".fbcdn.net")) return true
@@ -350,15 +486,27 @@ class PhishGuardVpnService : VpnService() {
         // Pattern: host-*.* or hostname-*.* (generic host names)
         if (lowerDomain.matches(Regex("^host(name)?-?\\d+\\."))) return true
         
+        // Pattern: [letter][number]s-[number].[provider].net (e.g., o5044s-259.kagoya.net)
+        if (lowerDomain.matches(Regex("^[a-z]\\d+s-\\d+\\."))) return true
+        
         // Pattern: *-*-*-*.compute.amazonaws.com (AWS EC2)
         if (lowerDomain.matches(Regex(".*\\.compute\\.amazonaws\\.com$"))) return true
         
         // Pattern: *.cloudapp.net (Azure)
         if (lowerDomain.endsWith(".cloudapp.net")) return true
         if (lowerDomain.endsWith(".cloudapp.azure.com")) return true
+        if (lowerDomain.endsWith(".azureedge.net")) return true
+        if (lowerDomain.endsWith(".blob.core.windows.net")) return true
+        if (lowerDomain.endsWith(".azure.com")) return true
         
         // Pattern: *.googleusercontent.com (Google Cloud)
         if (lowerDomain.endsWith(".googleusercontent.com")) return true
+        
+        // Pattern: *.awsglobalaccelerator.com (AWS Global Accelerator)
+        if (lowerDomain.endsWith(".awsglobalaccelerator.com")) return true
+        
+        // Pattern: *.elb.amazonaws.com (AWS Elastic Load Balancer)
+        if (lowerDomain.endsWith(".elb.amazonaws.com")) return true
         
         // Specific hosting providers (by domain)
         val hostingProviders = listOf(
@@ -376,7 +524,8 @@ class PhishGuardVpnService : VpnService() {
             ".godaddy.", ".godaddy.com",  // GoDaddy
             ".namecheap.", ".namecheap.com",  // Namecheap
             ".ionos.", ".ionos.com",  // IONOS
-            ".1and1.", "1and1.com"  // 1&1
+            ".1and1.", "1and1.com",  // 1&1
+            ".kagoya.", ".kagoya.net", ".kagoya.com"  // Kagoya (Japanese hosting)
         )
         
         if (hostingProviders.any { lowerDomain.contains(it) }) return true
@@ -416,6 +565,13 @@ class PhishGuardVpnService : VpnService() {
         stopVpn()
         threatDetector.close()
         serviceScope.cancel()
+        
+        try {
+            unregisterReceiver(settingsBroadcastReceiver)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error unregistering receiver", e)
+        }
+        
         super.onDestroy()
     }
     
@@ -469,5 +625,7 @@ class PhishGuardVpnService : VpnService() {
     object Actions {
         const val ACTION_START = "com.phishguard.action.START_VPN"
         const val ACTION_STOP = "com.phishguard.action.STOP_VPN"
+        const val ACTION_CLEAR_CACHE = "com.phishguard.action.CLEAR_CACHE"
+        const val ACTION_UPDATE_CACHE_DURATION = "com.phishguard.action.UPDATE_CACHE_DURATION"
     }
 }

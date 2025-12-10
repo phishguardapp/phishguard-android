@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -12,9 +13,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.phishguard.phishguard.R
 import com.phishguard.phishguard.MainActivity
 import com.phishguard.phishguard.ui.theme.PhishGuardTheme
 
@@ -153,9 +157,11 @@ fun WelcomePage() {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text(
-            text = "🛡️",
-            style = MaterialTheme.typography.displayLarge
+        Image(
+            painter = painterResource(id = R.drawable.ic_phishguard_logo),
+            contentDescription = "PhishGuard Logo",
+            modifier = Modifier.size(120.dp),
+            contentScale = ContentScale.Fit
         )
         
         Text(

@@ -13,7 +13,7 @@ import java.net.Socket
  * Tun2socks forwards to this proxy, we extract domain, then forward to real destination
  */
 class LocalSocksProxy(
-    private val onDomainDetected: (String) -> Unit,
+    private val onDomainDetected: (domain: String, port: Int) -> Unit,
     private val onDomainToIpMapping: ((String, String) -> Unit)? = null
 ) {
     private var isRunning = false
@@ -189,21 +189,21 @@ class LocalSocksProxy(
                             Log.i(TAG, "✅ Reverse DNS: $domain -> $hostname")
                             // Cache this mapping for future use
                             onDomainToIpMapping?.invoke(hostname, domain)
-                            // Report the domain name
-                            onDomainDetected(hostname)
+                            // Report the domain name with port
+                            onDomainDetected(hostname, port)
                         } else {
                             Log.w(TAG, "⚠️ No reverse DNS for $domain")
                             // IMPORTANT: Still analyze the IP with advanced checks
                             // The ThreatDetector will use WHOIS/SSL/domain age to determine if it's suspicious
                             // Only show notification if strong indicators are found
                             Log.i(TAG, "🔍 Analyzing IP with advanced checks: $domain")
-                            onDomainDetected(domain)  // Let ThreatDetector decide
+                            onDomainDetected(domain, port)  // Let ThreatDetector decide
                         }
                     } catch (e: Exception) {
                         Log.w(TAG, "⚠️ Reverse DNS failed for $domain: ${e.message}")
                         // Still analyze with advanced checks
                         Log.i(TAG, "🔍 Analyzing IP with advanced checks: $domain")
-                        onDomainDetected(domain)  // Let ThreatDetector decide
+                        onDomainDetected(domain, port)  // Let ThreatDetector decide
                     }
                 } else {
                     // We have a domain name - this is the ideal case!
@@ -221,8 +221,8 @@ class LocalSocksProxy(
                         Log.w(TAG, "Failed to resolve $domain to IP: ${e.message}")
                     }
                     
-                    // Report the domain for analysis
-                    onDomainDetected(domain)
+                    // Report the domain for analysis with port
+                    onDomainDetected(domain, port)
                 }
                 
                 // Connect to real destination
@@ -242,8 +242,8 @@ class LocalSocksProxy(
                     output.flush()
                     
                     // Relay data between client and destination
-                    // Pass domain for SNI extraction
-                    relay(client, destination, domain)
+                    // Pass domain and port for SNI extraction
+                    relay(client, destination, domain, port)
                     
                 } catch (e: Exception) {
                     Log.e(TAG, "Error connecting to $domain:$port", e)
@@ -269,7 +269,7 @@ class LocalSocksProxy(
         }
     }
     
-    private suspend fun relay(client: Socket, destination: Socket, detectedDomain: String?) = coroutineScope {
+    private suspend fun relay(client: Socket, destination: Socket, detectedDomain: String?, port: Int) = coroutineScope {
         val job1 = launch {
             try {
                 val clientInput = client.getInputStream()
@@ -287,9 +287,9 @@ class LocalSocksProxy(
                             val sniDomain = SniExtractor.extractSni(firstPacket.copyOf(bytesRead))
                             if (sniDomain != null && sniDomain != detectedDomain) {
                                 Log.i(TAG, "🔍 SNI extracted: $sniDomain (was: $detectedDomain)")
-                                // Cache this mapping and notify
+                                // Cache this mapping and notify with port
                                 onDomainToIpMapping?.invoke(sniDomain, detectedDomain)
-                                onDomainDetected(sniDomain)
+                                onDomainDetected(sniDomain, port)
                             }
                         } catch (e: Exception) {
                             Log.d(TAG, "SNI extraction failed: ${e.message}")

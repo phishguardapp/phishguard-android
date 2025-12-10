@@ -22,7 +22,7 @@ class ThreatDetector(private val context: Context) {
     // Core components
     private val bankDatabase: BankDatabaseHelper by lazy { BankDatabaseHelper(context) }
     private val domainResolver: DomainResolver = DomainResolver()
-    private val cache: ThreatAnalysisCache = ThreatAnalysisCache()
+    private val cache: ThreatAnalysisCache = ThreatAnalysisCache(context)
     
     // Advanced components (lazy initialization)
     private val sslValidator: com.phishguard.phishguard.service.vpn.threat.SSLCertificateValidator by lazy {
@@ -62,7 +62,10 @@ class ThreatDetector(private val context: Context) {
         // Major tech companies
         "google.com", "googleapis.com", "gstatic.com", "googleusercontent.com",
         "google-analytics.com", "googlevideo.com", "youtube.com", "ytimg.com",
+        "googletagmanager.com", "googleadservices.com", "doubleclick.net",
         "1e100.net", // Google infrastructure (e.g., sd-in-f188.1e100.net)
+        "gvt1.com", "gvt2.com", "gvt3.com", // Google infrastructure
+        "dns.google", // Google Public DNS
         "facebook.com", "fbcdn.net", "facebook.net",
         "apple.com", "icloud.com", "apple-cloudkit.com", "mzstatic.com",
         "microsoft.com", "live.com", "outlook.com", "office.com", "windows.com",
@@ -106,7 +109,11 @@ class ThreatDetector(private val context: Context) {
         "account",
         "update",
         "confirm",
-        "banking"
+        "banking",
+        "sms",
+        "otp",
+        "validation",
+        "authentication"
     )
     
     private val dangerousTlds = setOf(
@@ -146,7 +153,11 @@ class ThreatDetector(private val context: Context) {
         "fly.dev", "railway.app", "qovery.io", "kinsta.page",
         "codesandbox.io", "stackblitz.io", "glitch.me",
         // No-code platforms
-        "bubbleapps.io", "typedream.site", "webnode.page", "site123.me"
+        "bubbleapps.io", "typedream.site", "webnode.page", "site123.me",
+        // Documentation platforms (often abused)
+        "gitbook.io", "gitbook.com", "readthedocs.io", "readthedocs.org",
+        // Simple website builders
+        "makeweb.co", "000webhostapp.com", "freewebhostmost.com"
     )
     
     private val knownPhishingDomains = setOf(
@@ -164,10 +175,14 @@ class ThreatDetector(private val context: Context) {
         // English
         "bank", "banking", "paypal", "payu", "chase", "wellsfargo", "bofa", "citi",
         "hsbc", "barclays", "santander", "dkb", "commerzbank", "deutsche-bank",
+        // Major US banks
+        "usaa", "capitalone", "pnc", "truist", "usbank", "ally", "discover",
+        "americanexpress", "amex", "schwab", "fidelity", "vanguard",
         // Indian banks
         "icici", "hdfc", "sbi", "axis", "kotak", "paytm", "phonepe",
         // Payment services
         "stripe", "square", "venmo", "cashapp", "revolut", "n26", "payment", "pay",
+        "zelle", "wise", "transferwise",
         // Spanish/Portuguese
         "banco", "bancario", "credito", "creditos", "pago", "pagos",
         // French
@@ -184,7 +199,9 @@ class ThreatDetector(private val context: Context) {
     private val cryptoKeywords = setOf(
         "metamask", "metmask", "coinbase", "binance", "kraken", "gemini",
         "blockchain", "crypto", "wallet", "ledger", "trezor", "exodus",
-        "trustwallet", "phantom", "uniswap", "opensea", "rarible"
+        "trustwallet", "phantom", "uniswap", "opensea", "rarible",
+        "subwallet", "polkadot", "kusama", "eigenlayer", "ethereum",
+        "defi", "nft", "web3", "dapp", "token", "swap"
     )
     
     // Tech/Cloud brands commonly impersonated
@@ -214,8 +231,10 @@ class ThreatDetector(private val context: Context) {
     /**
      * Analyze a domain or IP address for threats
      * Now supports IP-to-domain resolution and database checks
+     * @param input Domain name or IP address to analyze
+     * @param isHttp Whether the connection is using unencrypted HTTP (port 80)
      */
-    suspend fun analyze(input: String): ThreatAnalysis = withContext(Dispatchers.IO) {
+    suspend fun analyze(input: String, isHttp: Boolean = false): ThreatAnalysis = withContext(Dispatchers.IO) {
         // Step 1: Resolve IP to domain if needed
         val domain = if (domainResolver.isIpAddress(input)) {
             val resolved = domainResolver.resolveIpToDomain(input)
@@ -236,8 +255,8 @@ class ThreatDetector(private val context: Context) {
             return@withContext it
         }
         
-        // Step 3: Perform analysis
-        val analysis = analyzeInternal(domain, input)
+        // Step 3: Perform analysis (pass isHttp parameter)
+        val analysis = analyzeInternal(domain, input, isHttp)
         
         // Step 4: Cache result
         cache.put(domain, analysis)
@@ -248,7 +267,7 @@ class ThreatDetector(private val context: Context) {
     /**
      * Internal analysis method with all advanced checks
      */
-    private suspend fun analyzeInternal(domain: String, originalInput: String): ThreatAnalysis {
+    private suspend fun analyzeInternal(domain: String, originalInput: String, isHttp: Boolean = false): ThreatAnalysis {
         val startTime = System.currentTimeMillis()
         val reasons = mutableListOf<String>()
         var suspicionScore = 0f
@@ -277,6 +296,16 @@ class ThreatDetector(private val context: Context) {
                     analysisTimeMs = analysisTime
                 )
             )
+        }
+        
+        // Check for HTTP on sensitive sites (financial/login pages)
+        val hasSensitiveKeyword = bankKeywords.any { lowerDomain.contains(it) } ||
+                                  suspiciousPatterns.any { lowerDomain.contains(it) }
+        if (isHttp && hasSensitiveKeyword) {
+            suspicionScore += 0.5f
+            reasons.add("Using unencrypted HTTP for sensitive site")
+            reasons.add("Legitimate financial sites always use HTTPS")
+            Log.d(TAG, "⚠️ HTTP detected on sensitive site - adding 0.5 to score")
         }
         
         // Check if domain is in legitimate allowlist
@@ -309,12 +338,15 @@ class ThreatDetector(private val context: Context) {
         val hasCryptoKeyword = cryptoKeywords.any { lowerDomain.contains(it) }
         if (hasCryptoKeyword) {
             val matchedCrypto = cryptoKeywords.first { lowerDomain.contains(it) }
+            Log.d(TAG, "  ✅ Crypto keyword found: $matchedCrypto")
+            
             // Check if it's NOT the official domain
             val isOfficialCrypto = when (matchedCrypto) {
                 "metamask" -> lowerDomain == "metamask.io" || lowerDomain.endsWith(".metamask.io")
                 "coinbase" -> lowerDomain == "coinbase.com" || lowerDomain.endsWith(".coinbase.com")
                 "binance" -> lowerDomain == "binance.com" || lowerDomain.endsWith(".binance.com")
                 "ledger" -> lowerDomain == "ledger.com" || lowerDomain.endsWith(".ledger.com")
+                "subwallet" -> lowerDomain == "subwallet.js.org" || lowerDomain.endsWith(".subwallet.js.org")
                 else -> false
             }
             
@@ -322,6 +354,9 @@ class ThreatDetector(private val context: Context) {
                 suspicionScore += 0.7f
                 reasons.add("Impersonating crypto/wallet brand: $matchedCrypto")
                 reasons.add("Likely phishing attempt targeting crypto users")
+                Log.d(TAG, "  ⚠️ Not official domain - adding 0.7 to score (now: $suspicionScore)")
+            } else {
+                Log.d(TAG, "  ✅ Official domain - no penalty")
             }
         }
         
@@ -394,30 +429,47 @@ class ThreatDetector(private val context: Context) {
         // Check for sites on free hosting platforms
         // Strategy: ANY site on free hosting gets flagged, then advanced checks determine legitimacy
         val onSuspiciousHosting = suspiciousHostingDomains.any { domain.endsWith(it, ignoreCase = true) }
-        if (onSuspiciousHosting) {
-            val platform = suspiciousHostingDomains.first { domain.endsWith(it, ignoreCase = true) }
+        
+        // Also check for hosting provider patterns in domain name
+        val hasHostingPattern = lowerDomain.contains("host") || 
+                                lowerDomain.contains("server") || 
+                                lowerDomain.contains("vps") ||
+                                lowerDomain.matches(Regex(".*srv\\d+.*"))
+        
+        if (onSuspiciousHosting || (hasHostingPattern && hasBankKeyword)) {
+            val platform = if (onSuspiciousHosting) {
+                suspiciousHostingDomains.first { domain.endsWith(it, ignoreCase = true) }
+            } else {
+                "hosting provider"
+            }
+            Log.d(TAG, "  ✅ On suspicious hosting: $platform")
             
             // Check if it has ANY brand-like keywords (not just our known list)
             val hasBrandName = (hasBankKeyword || hasCryptoKeyword || hasTechBrand)
             
             // Check for long subdomain (common in phishing)
-            val subdomain = domain.substringBeforeLast(".$platform")
+            val subdomain = if (onSuspiciousHosting) {
+                domain.substringBeforeLast(".$platform")
+            } else {
+                domain.substringBefore(".")
+            }
             val isLongSubdomain = subdomain.length > 20
             
             // Check for multiple hyphens (common in phishing)
             val hasMultipleHyphens = subdomain.count { it == '-' } >= 2
             
             if (hasBrandName) {
-                // Known brand on free hosting - very suspicious
-                suspicionScore += 0.6f
-                reasons.add("Brand name on free hosting platform ($platform)")
+                // Known brand on hosting platform - very suspicious
+                suspicionScore += 0.7f
+                reasons.add("Financial/brand name on hosting platform ($platform)")
                 reasons.add("Legitimate brands use their own domains")
+                Log.d(TAG, "  ⚠️ Brand on hosting - adding 0.7 to score (now: $suspicionScore)")
             } else if (isLongSubdomain || hasMultipleHyphens) {
-                // Suspicious subdomain pattern on free hosting
+                // Suspicious subdomain pattern on hosting
                 suspicionScore += 0.3f
-                reasons.add("Suspicious subdomain on free hosting ($platform)")
-                Log.d(TAG, "⚠️ Free hosting with suspicious pattern - will rely on advanced checks")
-            } else {
+                reasons.add("Suspicious subdomain on hosting platform ($platform)")
+                Log.d(TAG, "⚠️ Hosting with suspicious pattern - will rely on advanced checks")
+            } else if (onSuspiciousHosting) {
                 // Generic free hosting - flag but rely heavily on advanced checks
                 suspicionScore += 0.1f
                 Log.d(TAG, "ℹ️ Site on free hosting ($platform) - advanced checks will determine legitimacy")
@@ -458,6 +510,24 @@ class ThreatDetector(private val context: Context) {
         // to avoid false positives. Only flag if we have strong evidence.
         val isAnalyzingIp = domainResolver.isIpAddress(domain)
         if (isAnalyzingIp) {
+            // Check if this is a known CDN/infrastructure IP range
+            if (isKnownCdnIp(domain)) {
+                Log.d(TAG, "✅ Known CDN/infrastructure IP - marking as SAFE")
+                return ThreatAnalysis(
+                    domain = domain,
+                    verdict = Verdict.SAFE,
+                    confidence = 0.95f,
+                    reasons = listOf("Known CDN/infrastructure IP address"),
+                    metadata = AnalysisMetadata(
+                        domainAge = null,
+                        trancoRank = null,
+                        sslValid = null,
+                        inBankDatabase = false,
+                        analysisTimeMs = System.currentTimeMillis() - startTime
+                    )
+                )
+            }
+            
             // Lower score for bare IPs - we'll rely on advanced checks
             suspicionScore += 0.2f  // Reduced from 0.5f
             reasons.add("Using IP address instead of domain name")
@@ -503,6 +573,33 @@ class ThreatDetector(private val context: Context) {
                         // If the domain itself is suspicious/dangerous, return that verdict
                         if (domainAnalysis.verdict != Verdict.SAFE) {
                             return domainAnalysis
+                        }
+                        
+                        // If domain is SAFE and it's a CDN/infrastructure domain, trust it completely
+                        // This prevents false positives for CDN IPs like Fastly, Cloudflare, etc.
+                        val certDomainLower = certDomain.lowercase()
+                        val isCdnOrInfrastructure = listOf(
+                            ".fastly.net", ".fastlylb.net", ".cloudflare.net", ".cloudfront.net",
+                            ".akamaiedge.net", ".edgekey.net", ".edgesuite.net",
+                            ".amazonaws.com", ".cloudapp.net", ".googleusercontent.com",
+                            ".azureedge.net", ".blob.core.windows.net", ".azure.com"
+                        ).any { certDomainLower.endsWith(it) }
+                        
+                        if (isCdnOrInfrastructure) {
+                            Log.d(TAG, "✅ Extracted domain is CDN/infrastructure - marking IP as SAFE")
+                            return ThreatAnalysis(
+                                domain = domain,
+                                verdict = Verdict.SAFE,
+                                confidence = 0.95f,
+                                reasons = listOf("CDN/Infrastructure domain: $certDomain"),
+                                metadata = AnalysisMetadata(
+                                    domainAge = null,
+                                    trancoRank = null,
+                                    sslValid = sslResult.isValid,
+                                    inBankDatabase = false,
+                                    analysisTimeMs = System.currentTimeMillis() - startTime
+                                )
+                            )
                         }
                         
                         // If domain is SAFE but we have certificate mismatch, still flag it
@@ -705,6 +802,51 @@ class ThreatDetector(private val context: Context) {
     }
     
     /**
+     * Check if IP belongs to known CDN/infrastructure providers
+     */
+    private fun isKnownCdnIp(ip: String): Boolean {
+        val parts = ip.split(".")
+        if (parts.size != 4) return false
+        
+        try {
+            val octet1 = parts[0].toInt()
+            val octet2 = parts[1].toInt()
+            val octet3 = parts[2].toInt()
+            
+            // Cloudflare IP ranges (104.16.0.0/13, 104.24.0.0/14, etc.)
+            if (octet1 == 104 && octet2 in 16..31) return true
+            if (octet1 == 172 && octet2 in 64..79) return true
+            if (octet1 == 173 && octet2 == 245) return true
+            
+            // Google infrastructure (216.239.32.0/19, etc.)
+            if (octet1 == 216 && octet2 == 239 && octet3 in 32..63) return true
+            if (octet1 == 172 && octet2 in 217..219) return true
+            if (octet1 == 142 && octet2 == 250) return true
+            if (octet1 == 142 && octet2 == 251) return true
+            
+            // Fastly (151.101.0.0/16, 199.232.0.0/16)
+            if (octet1 == 151 && octet2 == 101) return true
+            if (octet1 == 199 && octet2 == 232) return true
+            
+            // Akamai (various ranges)
+            if (octet1 == 23 && octet2 in 32..63) return true
+            if (octet1 == 104 && octet2 in 64..127) return true
+            
+            // Azure (13.64.0.0/11, 13.104.0.0/14, etc.)
+            if (octet1 == 13 && octet2 in 64..127) return true
+            if (octet1 == 13 && octet2 in 104..107) return true
+            if (octet1 == 20 && octet2 in 33..255) return true
+            if (octet1 == 40 && octet2 in 64..127) return true
+            if (octet1 == 52 && octet2 in 224..255) return true
+            
+        } catch (e: Exception) {
+            return false
+        }
+        
+        return false
+    }
+    
+    /**
      * Extract domain name from SSL certificate
      * Parses CN (Common Name) and SAN (Subject Alternative Names)
      */
@@ -769,6 +911,14 @@ class ThreatDetector(private val context: Context) {
      * Get domain resolver for external use
      */
     fun getDomainResolver(): DomainResolver = domainResolver
+    
+    /**
+     * Clear the threat analysis cache
+     */
+    fun clearCache() {
+        cache.clear()
+        Log.i(TAG, "Threat analysis cache cleared")
+    }
     
     /**
      * Clean up resources

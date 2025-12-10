@@ -1,22 +1,24 @@
 package com.phishguard.phishguard.service.vpn.threat
 
+import android.content.Context
 import android.util.Log
 import com.phishguard.phishguard.service.vpn.ThreatDetector
+import com.phishguard.phishguard.utils.PreferencesManager
 import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Caches threat analysis results to improve performance
- * Entries expire after 24 hours
+ * Entries expire based on user-configured duration (1-24 hours)
  * Maximum 1000 entries with LRU eviction
  */
-class ThreatAnalysisCache {
+class ThreatAnalysisCache(context: Context) {
     
     companion object {
         private const val TAG = "ThreatAnalysisCache"
         private const val MAX_ENTRIES = 1000
-        private const val TTL_MS = 24 * 60 * 60 * 1000L // 24 hours
     }
     
+    private val prefsManager = PreferencesManager(context)
     private val cache = ConcurrentHashMap<String, CachedAnalysis>()
     
     /**
@@ -26,14 +28,16 @@ class ThreatAnalysisCache {
         val cached = cache[domain] ?: return null
         
         val age = System.currentTimeMillis() - cached.timestamp
-        if (age > TTL_MS) {
+        val ttlMs = prefsManager.cacheDurationMs
+        
+        if (age > ttlMs) {
             // Expired, remove it
             cache.remove(domain)
             Log.d(TAG, "Cache expired for $domain")
             return null
         }
         
-        Log.d(TAG, "Cache hit for $domain (age: ${age / 1000}s)")
+        Log.d(TAG, "Cache hit for $domain (age: ${age / 1000}s, TTL: ${ttlMs / 1000}s)")
         return cached.analysis
     }
     
@@ -85,10 +89,11 @@ class ThreatAnalysisCache {
      */
     fun getStats(): CacheStats {
         val now = System.currentTimeMillis()
+        val ttlMs = prefsManager.cacheDurationMs
         var expired = 0
         
         cache.values.forEach { cached ->
-            if (now - cached.timestamp > TTL_MS) {
+            if (now - cached.timestamp > ttlMs) {
                 expired++
             }
         }
