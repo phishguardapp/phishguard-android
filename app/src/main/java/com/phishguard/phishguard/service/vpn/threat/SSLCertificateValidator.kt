@@ -31,7 +31,9 @@ class SSLCertificateValidator {
         val subject: String?,
         val subjectAlternativeNames: List<String>?,
         val expiryDate: Date?,
-        val daysUntilExpiry: Int?
+        val daysUntilExpiry: Int?,
+        val validityPeriodDays: Int?,
+        val hasShortValidityPeriod: Boolean
     )
     
     /**
@@ -162,6 +164,25 @@ class SSLCertificateValidator {
             null
         }
         
+        // Calculate certificate validity period (issued date to expiry date)
+        val validityPeriodDays = try {
+            val issuedDate = cert.notBefore
+            if (expiryDate != null && issuedDate != null) {
+                val diff = expiryDate.time - issuedDate.time
+                (diff / (1000 * 60 * 60 * 24)).toInt()
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            null
+        }
+        
+        // Check for suspiciously short validity period
+        // Industry standard: 398 days max (since 2020), moving toward 90 days
+        // Phishing sites often use very short certificates (< 30 days)
+        // Flag certificates shorter than 30 days as highly suspicious
+        val hasShortValidityPeriod = validityPeriodDays != null && validityPeriodDays < 30
+        
         val isValid = !isExpired && !isSelfSigned && hostnameMatches
         
         Log.d(TAG, "Certificate analysis for $domain:")
@@ -172,6 +193,8 @@ class SSLCertificateValidator {
         Log.d(TAG, "  Subject: $subject")
         Log.d(TAG, "  SANs: $sanList")
         Log.d(TAG, "  Days until expiry: $daysUntilExpiry")
+        Log.d(TAG, "  Validity period: $validityPeriodDays days")
+        Log.d(TAG, "  Short validity period: $hasShortValidityPeriod")
         
         return CertificateValidation(
             isValid = isValid,
@@ -182,7 +205,9 @@ class SSLCertificateValidator {
             subject = subject,
             subjectAlternativeNames = sanList,
             expiryDate = expiryDate,
-            daysUntilExpiry = daysUntilExpiry
+            daysUntilExpiry = daysUntilExpiry,
+            validityPeriodDays = validityPeriodDays,
+            hasShortValidityPeriod = hasShortValidityPeriod
         )
     }
     

@@ -120,7 +120,7 @@ class ThreatDetector(private val context: Context) {
         ".tk", ".ml", ".ga", ".cf", ".gq", // Free TLDs often used for phishing
         ".xyz", ".top", ".work", ".click", ".biz", ".info", ".online",
         ".site", ".website", ".space", ".tech", ".store", ".pw",
-        ".link", ".live", ".club"
+        ".link", ".live", ".club", ".shop" // .shop often used for phishing
     )
     
     // Website builders and hosting platforms often abused for phishing
@@ -184,7 +184,8 @@ class ThreatDetector(private val context: Context) {
         "stripe", "square", "venmo", "cashapp", "revolut", "n26", "payment", "pay",
         "zelle", "wise", "transferwise",
         // Spanish/Portuguese
-        "banco", "bancario", "credito", "creditos", "pago", "pagos",
+        "banco", "bancario", "credito", "creditos", "pago", "pagos", "beneficios",
+        "solicitacao", "solicitação", "corporativo", "empresarial", "financeiro",
         // French
         "banque", "bancaire", "crédit", "paiement",
         // German
@@ -192,7 +193,10 @@ class ThreatDetector(private val context: Context) {
         // Italian
         "banca", "bancario", "pagamento",
         // Generic financial terms
-        "finance", "financial", "finanzas", "financeiro", "secure", "account"
+        "finance", "financial", "finanzas", "financeiro", "secure", "account",
+        // Premium/VIP financial scam terms
+        "blackcard", "platinumcard", "goldcard", "premiumcard", "vipcard",
+        "prime", "premium", "elite", "exclusive", "benefits", "rewards"
     )
     
     // Crypto/Web3 brands commonly impersonated
@@ -534,10 +538,29 @@ class ThreatDetector(private val context: Context) {
             Log.d(TAG, "⚠️ Analyzing bare IP - will rely on advanced checks for verdict")
         }
         
+        // Check for long compound domains with multiple suspicious keywords
+        val suspiciousKeywordCount = (bankKeywords + suspiciousPatterns).count { keyword ->
+            lowerDomain.contains(keyword)
+        }
+        
+        if (suspiciousKeywordCount >= 2 && lowerDomain.length > 20) {
+            suspicionScore += 0.35f
+            reasons.add("Multiple suspicious keywords in long domain name")
+            reasons.add("Common phishing tactic to appear legitimate")
+        }
+        
         // Check for homograph attacks (lookalike characters)
         if (containsSuspiciousCharacters(domain)) {
             suspicionScore += 0.3f
             reasons.add("Contains lookalike characters (possible homograph attack)")
+        }
+        
+        // Check for suspicious character set mixing (common in phishing)
+        val characterMismatch = detectSuspiciousCharacterMixing(lowerDomain)
+        if (characterMismatch != null) {
+            suspicionScore += 0.35f
+            reasons.add("Suspicious character mixing: ${characterMismatch}")
+            reasons.add("Mixed scripts often indicate phishing attempts")
         }
         
         // === ADVANCED CHECKS (Async) ===
@@ -655,7 +678,7 @@ class ThreatDetector(private val context: Context) {
                 val sslResult = sslValidator.validateCertificate(domain)
                 if (sslResult != null) {
                     sslValid = sslResult.isValid
-                    Log.i(TAG, "  ✅ SSL: valid=${sslResult.isValid}, selfSigned=${sslResult.isSelfSigned}, expired=${sslResult.isExpired}, hostnameMatch=${sslResult.hostnameMatches}")
+                    Log.i(TAG, "  ✅ SSL: valid=${sslResult.isValid}, selfSigned=${sslResult.isSelfSigned}, expired=${sslResult.isExpired}, hostnameMatch=${sslResult.hostnameMatches}, shortValidity=${sslResult.hasShortValidityPeriod}")
                     
                     when {
                         sslResult.isSelfSigned -> {
@@ -670,6 +693,18 @@ class ThreatDetector(private val context: Context) {
                             suspicionScore += 0.50f
                             reasons.add("SSL certificate hostname does not match domain")
                         }
+                        sslResult.hasShortValidityPeriod -> {
+                            suspicionScore += 0.50f
+                            val days = sslResult.validityPeriodDays ?: 0
+                            reasons.add("SSL certificate has very short validity period (${days} days)")
+                            reasons.add("Extremely short certificates often indicate phishing")
+                        }
+                        sslResult.validityPeriodDays != null && sslResult.validityPeriodDays < 90 -> {
+                            suspicionScore += 0.25f
+                            val days = sslResult.validityPeriodDays
+                            reasons.add("SSL certificate has short validity period (${days} days)")
+                            reasons.add("Unusually short for legitimate sites")
+                        }
                         sslResult.daysUntilExpiry != null && sslResult.daysUntilExpiry < 7 -> {
                             suspicionScore += 0.15f
                             reasons.add("SSL certificate expires soon (${sslResult.daysUntilExpiry} days)")
@@ -677,6 +712,12 @@ class ThreatDetector(private val context: Context) {
                     }
                 } else {
                     Log.d(TAG, "  ⚠️ SSL: No certificate data available")
+                    // SSL connection failure can indicate suspicious sites
+                    if (hasBankKeyword || hasCryptoKeyword) {
+                        suspicionScore += 0.20f
+                        reasons.add("SSL certificate unavailable for financial/sensitive site")
+                        reasons.add("Legitimate financial sites should have valid SSL")
+                    }
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "  ❌ SSL validation failed: ${e.message}", e)
@@ -918,6 +959,66 @@ class ThreatDetector(private val context: Context) {
     fun clearCache() {
         cache.clear()
         Log.i(TAG, "Threat analysis cache cleared")
+    }
+    
+    /**
+     * Detect suspicious character set mixing in domain names
+     * Uses Unicode character analysis to detect mixed scripts without hardcoding languages
+     */
+    private fun detectSuspiciousCharacterMixing(domain: String): String? {
+        // Analyze character scripts in the domain
+        val scripts = mutableSetOf<Character.UnicodeScript>()
+        val nonAsciiChars = mutableListOf<Char>()
+        
+        for (char in domain) {
+            val script = Character.UnicodeScript.of(char.code)
+            scripts.add(script)
+            
+            // Track non-ASCII characters
+            if (char.code > 127) {
+                nonAsciiChars.add(char)
+            }
+        }
+        
+        // Check for mixed scripts (excluding common ones like punctuation)
+        val significantScripts = scripts.filter { script ->
+            script != Character.UnicodeScript.COMMON && 
+            script != Character.UnicodeScript.INHERITED
+        }
+        
+        // Flag if we have multiple significant scripts
+        if (significantScripts.size > 1) {
+            val scriptNames = significantScripts.map { it.name }.joinToString(", ")
+            return "Mixed character scripts: $scriptNames"
+        }
+        
+        // Check for non-Latin characters in domains with Latin-looking structure
+        if (nonAsciiChars.isNotEmpty()) {
+            val hasLatinStructure = domain.contains('.') && 
+                                   domain.matches(Regex(".*[a-z].*")) &&
+                                   !domain.matches(Regex("^[\\u0000-\\u007F]*$")) // Not pure ASCII
+            
+            if (hasLatinStructure) {
+                val suspiciousChars = nonAsciiChars.take(3).joinToString("")
+                return "Non-Latin characters in Latin-structured domain: '$suspiciousChars'"
+            }
+        }
+        
+        // Check for suspicious character patterns that look like Latin but aren't
+        val suspiciousLookalikes = mapOf(
+            'а' to 'a', 'е' to 'e', 'о' to 'o', 'р' to 'p', 'с' to 'c', 'у' to 'y', 'х' to 'x', // Cyrillic
+            'ο' to 'o', 'ν' to 'v', 'ρ' to 'p', 'τ' to 't', 'υ' to 'u', 'χ' to 'x' // Greek
+        )
+        
+        val foundLookalikes = domain.filter { it in suspiciousLookalikes.keys }
+        if (foundLookalikes.isNotEmpty()) {
+            val examples = foundLookalikes.take(2).map { char ->
+                "${char}→${suspiciousLookalikes[char]}"
+            }.joinToString(", ")
+            return "Lookalike characters detected: $examples"
+        }
+        
+        return null
     }
     
     /**

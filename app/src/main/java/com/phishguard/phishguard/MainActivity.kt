@@ -80,7 +80,15 @@ class MainActivity : ComponentActivity() {
                 ) { innerPadding ->
                     PhishGuardHomeScreen(
                         isVpnActive = isVpnActive,
-                        onToggleVpn = { showVpnDialog = true },
+                        onToggleVpn = { 
+                            if (isVpnActive) {
+                                // Stop VPN directly
+                                stopVpnService()
+                            } else {
+                                // Show permission dialog for starting
+                                showVpnDialog = true
+                            }
+                        },
                         modifier = Modifier.padding(innerPadding)
                     )
                 }

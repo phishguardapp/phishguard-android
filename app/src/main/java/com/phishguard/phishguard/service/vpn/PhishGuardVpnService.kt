@@ -12,6 +12,7 @@ import android.net.VpnService
 import android.os.ParcelFileDescriptor
 import android.util.Log
 import com.phishguard.phishguard.utils.PreferencesManager
+import com.phishguard.phishguard.utils.NotificationTranslator
 import kotlinx.coroutines.*
 import kotlinx.coroutines.delay
 import java.io.FileInputStream
@@ -38,6 +39,7 @@ class PhishGuardVpnService : VpnService() {
     
     private val threatDetector by lazy { ThreatDetector(this) }
     private val prefsManager by lazy { PreferencesManager(this) }
+    private val notificationTranslator by lazy { NotificationTranslator(this) }
     private val analyzedDomains = mutableSetOf<String>()
     private val notifiedDomains = mutableMapOf<String, Long>()  // domain -> last notification time
     private var lastNotificationTime = 0L  // Track last notification to suppress resource spam
@@ -84,6 +86,7 @@ class PhishGuardVpnService : VpnService() {
     override fun onCreate() {
         super.onCreate()
         Log.d(TAG, "VPN Service created")
+        Log.i(TAG, "System language: ${notificationTranslator.getCurrentLanguage()} | Translation available: ${notificationTranslator.isTranslationAvailable()}")
         createNotificationChannel()
         
         // Register broadcast receiver for settings changes
@@ -374,46 +377,55 @@ class PhishGuardVpnService : VpnService() {
     }
     
     private fun showThreatNotification(domain: String, analysis: ThreatDetector.ThreatAnalysis, isDangerous: Boolean) {
-        Log.i(TAG, "📢 showThreatNotification called for: $domain (dangerous=$isDangerous)")
+        Log.i(TAG, "📢 showThreatNotification called for: $domain (dangerous=$isDangerous) [Language: ${notificationTranslator.getCurrentLanguage()}]")
         val notificationId = domain.hashCode()
         
-        // Create a high-priority channel for threats
+        // Create a high-priority channel for threats with translated names
         val threatChannelId = if (isDangerous) "phishguard_danger" else "phishguard_warning"
+        val channelName = if (isDangerous) {
+            notificationTranslator.translate("channel_danger")
+        } else {
+            notificationTranslator.translate("channel_warning")
+        }
+        val channelDescription = notificationTranslator.translate("channel_description")
+        
         val threatChannel = NotificationChannel(
             threatChannelId,
-            if (isDangerous) "Phishing Alerts" else "Security Warnings",
+            channelName,
             if (isDangerous) NotificationManager.IMPORTANCE_HIGH else NotificationManager.IMPORTANCE_DEFAULT
         ).apply {
-            description = "Alerts for detected threats"
+            description = channelDescription
             enableVibration(true)
             enableLights(true)
         }
         notificationManager.createNotificationChannel(threatChannel)
-        Log.d(TAG, "   Channel created: $threatChannelId")
+        Log.d(TAG, "   Channel created: $threatChannelId (${channelName})")
         
+        // Translate notification content
         val title = if (isDangerous) {
-            "🛑 PHISHING DETECTED - DO NOT PROCEED"
+            notificationTranslator.translate("phishing_detected")
         } else {
-            "⚠️ Suspicious Site Warning"
+            notificationTranslator.translate("suspicious_site")
         }
         
         val text = if (isDangerous) {
-            "DANGER: $domain is likely a phishing site"
+            notificationTranslator.translate("danger_content", domain)
         } else {
-            "Warning: $domain shows suspicious patterns"
+            notificationTranslator.translate("warning_content", domain)
         }
         
         val detailsText = buildString {
             append(text)
             append("\n\n")
-            append("Risk Level: ${(analysis.confidence * 100).toInt()}%")
+            append(notificationTranslator.translate("risk_level", (analysis.confidence * 100).toInt()))
             append("\n\n")
-            append("Why this is flagged:")
+            append(notificationTranslator.translate("why_flagged"))
             analysis.reasons.forEach { reason ->
                 append("\n• $reason")
             }
             if (isDangerous) {
-                append("\n\n⚠️ DO NOT enter passwords or personal information!")
+                append("\n\n")
+                append(notificationTranslator.translate("do_not_enter"))
             }
         }
         
@@ -435,6 +447,7 @@ class PhishGuardVpnService : VpnService() {
         notificationManager.notify(notificationId, notification)
         
         Log.w(TAG, "✅ THREAT NOTIFICATION SENT: $title - $domain (ID: $notificationId)")
+        Log.i(TAG, "   Language: ${notificationTranslator.getCurrentLanguage()} | Translation available: ${notificationTranslator.isTranslationAvailable()}")
     }
     
     /**
@@ -459,6 +472,7 @@ class PhishGuardVpnService : VpnService() {
         // More CDN providers
         if (lowerDomain.endsWith(".cloudflaressl.com")) return true
         if (lowerDomain.endsWith(".cloudflare-dns.com")) return true
+        if (lowerDomain.endsWith(".cloudflare-ech.com")) return true
         
         // Facebook/Meta infrastructure
         if (lowerDomain.endsWith(".fbcdn.net")) return true

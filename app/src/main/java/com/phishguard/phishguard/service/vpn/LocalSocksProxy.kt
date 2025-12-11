@@ -287,9 +287,24 @@ class LocalSocksProxy(
                             val sniDomain = SniExtractor.extractSni(firstPacket.copyOf(bytesRead))
                             if (sniDomain != null && sniDomain != detectedDomain) {
                                 Log.i(TAG, "🔍 SNI extracted: $sniDomain (was: $detectedDomain)")
-                                // Cache this mapping and notify with port
+                                // Cache this mapping
                                 onDomainToIpMapping?.invoke(sniDomain, detectedDomain)
-                                onDomainDetected(sniDomain, port)
+                                
+                                // Smart analysis: Check if SNI looks like infrastructure
+                                val sniLower = sniDomain.lowercase()
+                                val isInfrastructure = sniLower.contains("cloudflare") || 
+                                                     sniLower.contains("fastly") || 
+                                                     sniLower.contains("akamai") || 
+                                                     sniLower.contains("amazonaws") ||
+                                                     sniLower.contains("cdn")
+                                
+                                if (isInfrastructure) {
+                                    Log.d(TAG, "🔀 SNI is infrastructure - analyzing original domain: $detectedDomain")
+                                    onDomainDetected(detectedDomain, port)
+                                } else {
+                                    Log.d(TAG, "🔍 SNI is not infrastructure - analyzing SNI domain: $sniDomain")
+                                    onDomainDetected(sniDomain, port)
+                                }
                             }
                         } catch (e: Exception) {
                             Log.d(TAG, "SNI extraction failed: ${e.message}")
